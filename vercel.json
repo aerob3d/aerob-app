@@ -1,11 +1,10 @@
 {
   "version": 2,
-  "routes": [
-    { "handle": "filesystem" },
-    { "src": "/estimation",         "dest": "/estimation.html"          },
-    { "src": "/estimation-analysis","dest": "/estimation-analysis.html" },
-    { "src": "/raceview",           "dest": "/raceview.html"            },
-    { "src": "/(.*)",       "dest": "/index.html"      }
+  "rewrites": [
+    { "source": "/estimation",          "destination": "/estimation.html"          },
+    { "source": "/estimation-analysis", "destination": "/estimation-analysis.html" },
+    { "source": "/raceview",            "destination": "/raceview.html"            },
+    { "source": "/((?!api/).*)",        "destination": "/index.html"               }
   ],
   "headers": [
     {

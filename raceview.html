@@ -666,7 +666,9 @@ async function goTo(idx) {
     svNoCov.classList.toggle('hidden', !noCov);
   } else {
     svImg.classList.add('hidden');
-    document.getElementById('svPlaceholder').classList.remove('hidden');
+    const ph = document.getElementById('svPlaceholder');
+    ph.innerHTML = '<div class="big">⚠️</div><div id="svError">Street View unavailable — check console for details</div>';
+    ph.classList.remove('hidden');
     svNoCov.classList.add('hidden');
   }
 }
