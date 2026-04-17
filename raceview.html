@@ -288,7 +288,7 @@ input#gpxFile{display:none}
 // ═══════════════════════════════════════════════════════════════════
 // Config
 // ═══════════════════════════════════════════════════════════════════
-const EDGE_BASE = `${SUPABASE_URL}/functions/v1`;
+const SV_BASE = '/api/streetview';
 
 // ═══════════════════════════════════════════════════════════════════
 // State
@@ -498,11 +498,6 @@ function updateElevCursor(idx) {
 // ═══════════════════════════════════════════════════════════════════
 const MAX_CACHE = 60;
 
-async function getAccessToken() {
-  const { data: { session } } = await _sb.auth.getSession();
-  return session?.access_token ?? SUPABASE_ANON_KEY;
-}
-
 async function fetchStreetView(idx) {
   if (imgCache.has(idx)) return imgCache.get(idx);
   if (loadingSet.has(idx)) {
@@ -520,7 +515,6 @@ async function fetchStreetView(idx) {
 
   loadingSet.add(idx);
   try {
-    const token = await getAccessToken();
     const params = new URLSearchParams({
       lat: pt.lat.toFixed(6),
       lng: pt.lon.toFixed(6),
@@ -528,11 +522,11 @@ async function fetchStreetView(idx) {
       fov: String(state.fov),
       size: '800x450',
     });
-    const resp = await fetch(`${EDGE_BASE}/streetview-proxy?${params}`, {
-      headers: { 'Authorization': `Bearer ${token}` },
-    });
+    const resp = await fetch(`${SV_BASE}?${params}`);
 
     if (!resp.ok) {
+      const body = await resp.text().catch(() => '');
+      console.error(`[SV] proxy ${resp.status} for idx=${idx}:`, body);
       loadingSet.delete(idx);
       return null;
     }
@@ -554,7 +548,8 @@ async function fetchStreetView(idx) {
     imgCache.set(`${idx}_nocov`, noCover);
 
     return url;
-  } catch {
+  } catch(e) {
+    console.error('[SV] fetch exception:', e);
     return null;
   } finally {
     loadingSet.delete(idx);
@@ -798,6 +793,8 @@ function switchViewTab(tab) {
 
   if (isMap && leafletMap) {
     setTimeout(() => leafletMap.invalidateSize(), 50);
+  } else if (!isMap && state.sampled.length) {
+    goTo(state.currentIdx);
   }
 }
 
