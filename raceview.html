@@ -90,14 +90,16 @@ input#gpxFile{display:none}
 
 /* ── Viewer card ───────────────────────────────────────────────── */
 .viewer-card{padding:0;overflow:hidden}
-.viewer-tabs{display:flex;border-bottom:2px solid var(--border)}
-.viewer-tab{flex:1;text-align:center;padding:11px;font-size:13px;font-weight:600;color:var(--sub);cursor:pointer;border-bottom:3px solid transparent;margin-bottom:-2px;transition:all .2s;background:none;border-top:none;border-left:none;border-right:none}
-.viewer-tab.active{color:var(--blue);border-bottom-color:var(--blue)}
-.viewer-pane{display:none;padding:16px}
-.viewer-pane.active{display:block}
+.viewer-content{padding:16px}
 
-/* ── Map ───────────────────────────────────────────────────────── */
-#map{height:480px;border-radius:8px;border:1px solid var(--border)}
+/* ── Map inset overlay ──────────────────────────────────────────── */
+.sv-map-inset{position:absolute;bottom:14px;right:14px;width:210px;height:134px;border-radius:6px;overflow:hidden;border:2px solid rgba(255,255,255,.35);z-index:10;box-shadow:0 2px 12px rgba(0,0,0,.45)}
+
+/* ── Heading overlay ────────────────────────────────────────────── */
+.sv-overlay-heading{position:absolute;top:52px;left:14px;background:rgba(10,16,32,.72);color:#fff;padding:5px 10px 5px 8px;border-radius:8px;font-size:12px;font-weight:700;font-family:var(--mono);backdrop-filter:blur(6px);pointer-events:none;display:flex;align-items:center;gap:5px}
+
+/* ── Gradient overlay ───────────────────────────────────────────── */
+.sv-overlay-grad{position:absolute;bottom:14px;left:14px;background:rgba(10,16,32,.72);color:#fff;padding:6px 12px;border-radius:8px;font-size:14px;font-weight:700;font-family:var(--mono);backdrop-filter:blur(6px);pointer-events:none}
 
 /* ── Street View pane ──────────────────────────────────────────── */
 .sv-wrap{position:relative;border-radius:8px;overflow:hidden;background:#0a1020;aspect-ratio:16/9}
@@ -217,28 +219,36 @@ input#gpxFile{display:none}
     <div>
       <div class="card viewer-card" id="viewerCard">
 
-        <!-- Tab bar -->
-        <div class="viewer-tabs">
-          <button class="viewer-tab active" id="tabMap" onclick="switchViewTab('map')">🗺 Route Map</button>
-          <button class="viewer-tab" id="tabSV" onclick="switchViewTab('sv')">📸 Street View</button>
-        </div>
-
-        <!-- Map pane -->
-        <div class="viewer-pane active" id="paneMap">
-          <div id="map"></div>
-        </div>
-
-        <!-- Street View pane -->
-        <div class="viewer-pane" id="paneSV">
+        <!-- Combined Street View + Map inset -->
+        <div class="viewer-content">
           <div class="sv-wrap" id="svWrap">
             <div class="sv-placeholder" id="svPlaceholder">
               <div class="big">🏔️</div>
               <div>Load a GPX file to begin the ride-through</div>
             </div>
             <img class="sv-img hidden" id="svImg" alt="Street View">
+            <!-- Distance (top-left) -->
             <div class="sv-overlay-dist hidden" id="ovDist">0.0 km</div>
+            <!-- Heading compass (below distance) -->
+            <div class="sv-overlay-heading hidden" id="ovHeading">
+              <svg width="22" height="22" viewBox="0 0 24 24" style="flex-shrink:0">
+                <circle cx="12" cy="12" r="11" fill="none" stroke="rgba(255,255,255,.3)" stroke-width="1.5"/>
+                <g id="compassNeedle" transform="rotate(0,12,12)">
+                  <polygon points="12,3 13.5,12 12,15 10.5,12" fill="#ffa500"/>
+                  <polygon points="12,15 13.5,12 12,21 10.5,12" fill="rgba(255,255,255,.4)"/>
+                </g>
+                <circle cx="12" cy="12" r="1.5" fill="rgba(255,255,255,.6)"/>
+              </svg>
+              <span id="headingText">—</span>
+            </div>
+            <!-- Progress % (top-right) -->
             <div class="sv-overlay-pct hidden" id="ovPct">0%</div>
+            <!-- Gradient (bottom-left) -->
+            <div class="sv-overlay-grad hidden" id="ovGrad">— %</div>
+            <!-- Progress bar -->
             <div class="sv-overlay-bar hidden" id="ovBar"><div class="sv-overlay-bar-fill" id="ovBarFill" style="width:0%"></div></div>
+            <!-- Map inset (bottom-right, below loading overlay) -->
+            <div class="sv-map-inset hidden" id="mapInset"></div>
             <div class="sv-loading hidden" id="svLoading"><div class="spin"></div> Loading imagery…</div>
             <div class="sv-no-cover hidden" id="svNoCover">No Street View coverage at this location</div>
           </div>
@@ -405,6 +415,19 @@ function addHeadings(sampled) {
   });
 }
 
+function calcGradient(idx) {
+  const s = state.sampled;
+  if (s.length < 2) return 0;
+  const a = idx > 0 ? s[idx - 1] : s[0];
+  const b = idx < s.length - 1 ? s[idx + 1] : s[s.length - 1];
+  const dDist = b.dist - a.dist;
+  return dDist < 1 ? 0 : (b.ele - a.ele) / dDist * 100;
+}
+
+function headingToCardinal(h) {
+  return ['N','NE','E','SE','S','SW','W','NW'][Math.round(h / 45) % 8];
+}
+
 // ═══════════════════════════════════════════════════════════════════
 // Map (Leaflet)
 // ═══════════════════════════════════════════════════════════════════
@@ -413,11 +436,8 @@ let routeLayer = null;
 let posMarker  = null;
 
 function initMap() {
-  leafletMap = L.map('map', { zoomControl: true });
-  L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
-    maxZoom: 19,
-    attribution: '© OpenStreetMap contributors',
-  }).addTo(leafletMap);
+  leafletMap = L.map('mapInset', { zoomControl: false, attributionControl: false });
+  L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19 }).addTo(leafletMap);
 }
 
 function drawRoute(sampled) {
@@ -638,6 +658,19 @@ async function goTo(idx) {
   document.getElementById('ovPct').textContent = `${Math.round(pct)}%`;
   document.getElementById('ovBarFill').style.width = pct + '%';
 
+  // Update heading compass
+  const h = pt.heading || 0;
+  document.getElementById('compassNeedle').setAttribute('transform', `rotate(${h},12,12)`);
+  document.getElementById('headingText').textContent = `${h}° ${headingToCardinal(h)}`;
+
+  // Update gradient
+  const grad = calcGradient(idx);
+  const absGrad = Math.abs(grad);
+  const gradEl = document.getElementById('ovGrad');
+  const sign = grad > 0.2 ? '▲' : grad < -0.2 ? '▼' : '—';
+  gradEl.textContent = `${sign} ${absGrad.toFixed(1)}%`;
+  gradEl.style.color = absGrad >= 8 ? '#ff5555' : absGrad >= 5 ? '#ffa500' : absGrad >= 2 ? '#ffd700' : '#fff';
+
   // Update map marker
   updateMapMarker(idx);
   updateElevCursor(idx);
@@ -750,8 +783,10 @@ function processSampled() {
 }
 
 function showOverlays(show) {
-  ['ovDist','ovPct','ovBar'].forEach(id =>
+  ['ovDist','ovPct','ovBar','ovGrad','ovHeading'].forEach(id =>
     document.getElementById(id).classList.toggle('hidden', !show));
+  document.getElementById('mapInset').classList.toggle('hidden', !show);
+  if (show && leafletMap) setTimeout(() => leafletMap.invalidateSize(), 100);
 }
 
 // ═══════════════════════════════════════════════════════════════════
@@ -780,24 +815,6 @@ function applySettings() {
   const statusEl = document.getElementById('parseStatus');
   setStatus(statusEl, 'success',
     `Resampled: ${state.sampled.length} frames at ${state.sampleMeters} m intervals`);
-}
-
-// ═══════════════════════════════════════════════════════════════════
-// Tab switching
-// ═══════════════════════════════════════════════════════════════════
-function switchViewTab(tab) {
-  const isMap = tab === 'map';
-  document.getElementById('paneMap').classList.toggle('active', isMap);
-  document.getElementById('paneSV').classList.toggle('active', !isMap);
-  document.getElementById('tabMap').classList.toggle('active', isMap);
-  document.getElementById('tabSV').classList.toggle('active', !isMap);
-  document.getElementById('playerControls').classList.toggle('hidden', isMap);
-
-  if (isMap && leafletMap) {
-    setTimeout(() => leafletMap.invalidateSize(), 50);
-  } else if (!isMap && state.sampled.length) {
-    goTo(state.currentIdx);
-  }
 }
 
 // ═══════════════════════════════════════════════════════════════════
