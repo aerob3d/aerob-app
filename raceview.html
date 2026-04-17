@@ -523,7 +523,7 @@ async function fetchStreetView(idx) {
     const token = await getAccessToken();
     const params = new URLSearchParams({
       lat: pt.lat.toFixed(6),
-      lon: pt.lon.toFixed(6),
+      lng: pt.lon.toFixed(6),
       heading: String(pt.heading),
       fov: String(state.fov),
       size: '800x450',
