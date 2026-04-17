@@ -1,0 +1,444 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Analysis Detail — AeroB</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+<script src="/platform.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --blue:#1f3b88;--blue-light:#2a4fad;--blue-dark:#142960;
+  --orange:#ffa500;--orange-light:#ffb733;
+  --bg:#f0f2f7;--card:#fff;--border:#d0d7e3;
+  --text:#1a2236;--sub:#5a6880;--mono:"Consolas","Monaco",monospace;
+  --radius:10px;--shadow:0 2px 12px rgba(31,59,136,.08);
+}
+body{font-family:"Segoe UI","Inter",system-ui,sans-serif;background:var(--bg);color:var(--text);min-height:100vh}
+
+.header{background:var(--blue);color:#fff;padding:16px 32px;display:flex;align-items:center;gap:16px;box-shadow:0 2px 8px rgba(0,0,0,.15)}
+.header img{height:40px;width:auto;filter:brightness(0) invert(1)}
+.header h1{font-size:22px;font-weight:700;letter-spacing:.5px}
+.header h1 span{color:var(--orange)}
+.header-spacer{flex:1}
+.user-badge{display:flex;align-items:center;gap:10px;background:rgba(255,255,255,.12);padding:6px 14px;border-radius:20px;flex-shrink:0}
+.user-badge span{font-size:13px;font-weight:600}
+.user-badge button{background:rgba(255,255,255,.18);border:1px solid rgba(255,255,255,.3);color:#fff;padding:4px 12px;border-radius:12px;font-size:12px;cursor:pointer;transition:all .2s}
+.user-badge button:hover{background:rgba(255,255,255,.3)}
+
+.container{max-width:1100px;margin:0 auto;padding:28px 24px}
+
+.back-link{display:inline-flex;align-items:center;gap:6px;font-size:13px;color:var(--blue);text-decoration:none;margin-bottom:20px;padding:6px 12px;border-radius:6px;border:1px solid var(--border);background:var(--card);transition:all .2s}
+.back-link:hover{border-color:var(--blue);background:#f0f4ff}
+
+.page-title{margin-bottom:24px}
+.page-title h2{font-size:20px;font-weight:800;color:var(--blue);margin-bottom:4px}
+.page-title p{font-size:13px;color:var(--sub)}
+
+.card{background:var(--card);border-radius:var(--radius);border:1px solid var(--border);box-shadow:var(--shadow);padding:20px;margin-bottom:20px}
+.card h2{font-size:15px;color:var(--blue);margin-bottom:14px;display:flex;align-items:center;gap:8px}
+
+.results-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:12px}
+.metric{text-align:center;padding:14px 10px;background:#f7f9fc;border-radius:8px;border:1px solid #edf0f7}
+.metric .value{font-size:26px;font-weight:700;color:var(--blue)}
+.metric .unit{font-size:12px;color:var(--sub)}
+.metric .label{font-size:11px;color:var(--sub);margin-top:4px;text-transform:uppercase;letter-spacing:.3px}
+.metric.highlight .value{color:var(--orange)}
+
+table{width:100%;border-collapse:collapse;font-size:13px}
+th{background:var(--blue);color:#fff;padding:8px 10px;text-align:left;font-weight:600;font-size:11px;text-transform:uppercase;letter-spacing:.4px}
+td{padding:8px 10px;border-bottom:1px solid #eef1f6}
+tr:hover td{background:#f7f9fc}
+.quality-badge{font-size:11px;padding:2px 8px;border-radius:10px;font-weight:600}
+.q-excellent{background:#dcfce7;color:#166534}
+.q-good{background:#e0f2fe;color:#075985}
+.q-fair{background:#fef3c7;color:#92400e}
+.q-poor{background:#fee2e2;color:#991b1b}
+.q-unreliable{background:#f1f5f9;color:#64748b}
+
+.chart-container{position:relative;height:280px;margin-top:12px}
+
+.info-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+@media(max-width:600px){.info-grid{grid-template-columns:1fr}}
+.info-tile{background:#f7f9fc;border:1px solid #edf0f7;border-radius:8px;padding:12px}
+.info-tile .it-label{font-size:10px;font-weight:700;color:var(--sub);text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px}
+.info-tile .it-val{font-size:13px;font-weight:600;color:var(--text)}
+
+.notice-card{background:#f0f6ff;border:1px solid #c4d8ff;border-radius:var(--radius);padding:16px 20px;margin-bottom:20px;display:flex;gap:14px;align-items:flex-start}
+.notice-card .nc-icon{font-size:22px;flex-shrink:0;margin-top:1px}
+.notice-card .nc-body h4{font-size:13px;font-weight:700;color:var(--blue-dark);margin-bottom:4px}
+.notice-card .nc-body p{font-size:12px;color:var(--sub);line-height:1.55}
+
+.insight-hero{text-align:center;padding:12px 0 8px}
+.insight-cda-val{font-size:38px;font-weight:800;color:var(--blue);line-height:1}
+.insight-cda-sub{font-size:13px;color:var(--sub);margin-top:5px;line-height:1.4}
+.insight-scale-wrap{margin:18px 0 12px}
+.insight-scale-bar{position:relative;height:8px;background:linear-gradient(to right,#1f3b88 0%,#16a34a 28%,#eab308 55%,#ea580c 78%,#dc2626 100%);border-radius:4px;margin-bottom:6px}
+.insight-scale-thumb{position:absolute;top:50%;width:18px;height:18px;background:#fff;border:3px solid var(--blue);border-radius:50%;box-shadow:0 2px 8px rgba(31,59,136,.3);transform:translate(-50%,-50%)}
+.insight-scale-val{position:absolute;top:-22px;left:50%;transform:translateX(-50%);font-size:10px;font-weight:700;color:var(--blue);white-space:nowrap;background:#fff;padding:2px 5px;border-radius:4px;border:1px solid #d0d7e3;box-shadow:0 1px 3px rgba(0,0,0,.08)}
+.insight-scale-axis{display:flex;justify-content:space-between;font-size:10px;color:var(--sub)}
+.insight-stats{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin:14px 0 4px}
+.insight-stat{background:#f7f9fc;border-radius:8px;padding:12px;border:1px solid #edf0f7}
+.insight-stat .is-val{font-size:14px;font-weight:700;color:var(--blue)}
+.insight-stat .is-lbl{font-size:11px;font-weight:600;color:var(--sub);text-transform:uppercase;letter-spacing:.3px;margin-top:1px}
+.insight-stat .is-note{font-size:11px;color:var(--sub);margin-top:5px;line-height:1.45}
+.insight-stat.good .is-val{color:#16a34a}
+.insight-stat.warn .is-val{color:#ea580c}
+.insight-stat.ok .is-val{color:#0891b2}
+
+.loading-state{text-align:center;padding:60px 20px;color:var(--sub);font-size:14px}
+.loading-state .spin{display:inline-block;width:20px;height:20px;border:2px solid var(--border);border-top-color:var(--blue);border-radius:50%;animation:spin .7s linear infinite;vertical-align:middle;margin-right:10px}
+@keyframes spin{to{transform:rotate(360deg)}}
+.error-state{text-align:center;padding:60px 20px}
+.error-state h3{font-size:18px;font-weight:700;color:#991b1b;margin-bottom:8px}
+.error-state p{font-size:14px;color:var(--sub);line-height:1.6}
+
+.wx-row{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:8px}
+.wx-tile{background:#f0f6ff;border:1px solid #d8e6ff;border-radius:8px;padding:10px 6px;text-align:center}
+.wx-tile .wv{font-size:15px;font-weight:700;color:var(--blue)}
+.wx-tile .wl{font-size:10px;color:var(--sub);text-transform:uppercase;letter-spacing:.3px;margin-top:3px}
+
+.footer{text-align:center;padding:24px;font-size:12px;color:var(--sub)}
+.footer a{color:var(--blue)}
+.hidden{display:none!important}
+</style>
+</head>
+<body>
+
+<div class="header">
+  <img src="/Logo.png" alt="AeroB">
+  <h1>Aero<span>B</span>estimation</h1>
+  <div class="header-spacer"></div>
+  <div class="user-badge hidden" id="userBadge">
+    <span id="userDisplay">👤</span>
+    <button onclick="doLogout()">Sign Out</button>
+  </div>
+</div>
+
+<div class="container">
+
+  <a class="back-link" href="/estimation">← Back to CdA Estimator</a>
+
+  <div class="loading-state" id="loadingState">
+    <span class="spin"></span> Loading analysis…
+  </div>
+
+  <div class="error-state hidden" id="errorState">
+    <h3>Analysis not found</h3>
+    <p id="errorMsg">This analysis could not be loaded. It may have been deleted or belong to a different account.</p>
+  </div>
+
+  <div id="analysisView" class="hidden">
+
+    <div class="page-title">
+      <h2 id="analysisTitle">Analysis</h2>
+      <p id="analysisMeta"></p>
+    </div>
+
+    <div class="notice-card">
+      <div class="nc-icon">💾</div>
+      <div class="nc-body">
+        <h4>Saved analysis snapshot</h4>
+        <p>This view renders from stored lap-level data. The RMSE vs CdA sensitivity curve, Virtual Elevation overlay, and ride map are not available here — they require the original ride file. Return to the <a href="/estimation">CdA Estimator</a>, upload the file, and run a fresh analysis to access those charts.</p>
+      </div>
+    </div>
+
+    <!-- Summary -->
+    <div class="card" id="summaryCard">
+      <h2>📊 Summary</h2>
+      <div class="results-grid" id="summaryGrid"></div>
+    </div>
+
+    <!-- Insight -->
+    <div class="card" id="insightCard"></div>
+
+    <!-- Lap table -->
+    <div class="card">
+      <h2>🏁 Per-Lap Results</h2>
+      <div style="overflow-x:auto">
+        <table>
+          <thead><tr>
+            <th>Lap</th><th>CdA (m²)</th>
+            <th title="Normalized RMSE = RMSE ÷ elevation range. Hover for raw RMSE.">Fit Error</th>
+            <th>Duration</th><th>Avg Speed</th><th>Avg Power</th><th>Avg HR</th><th>Quality</th>
+          </tr></thead>
+          <tbody id="lapBody"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- CdA chart -->
+    <div class="card">
+      <h2>📈 CdA per Lap</h2>
+      <div class="chart-container"><canvas id="cdaChart"></canvas></div>
+    </div>
+
+    <!-- Config + weather -->
+    <div class="card" id="configCard">
+      <h2>⚙️ Analysis Config</h2>
+      <div class="info-grid" id="configGrid"></div>
+    </div>
+
+    <div class="card hidden" id="weatherCard">
+      <h2>🌤️ Ride Weather</h2>
+      <div id="weatherContent"></div>
+    </div>
+
+  </div>
+
+</div>
+
+<div class="footer">AeroBestimation — <a href="/estimation">← Back to estimator</a></div>
+
+<script>
+// ── Auth ─────────────────────────────────────────────────────────────
+let _currentUser = null;
+
+function showUserBadge(user) {
+  _currentUser = user;
+  document.getElementById('userBadge').classList.remove('hidden');
+  document.getElementById('userDisplay').textContent = '👤 ' + (user.displayName || user.email.split('@')[0]);
+}
+
+// Use assignment (not declaration) so platform's doLogout isn't shadowed by hoisting
+const _platformLogout = window.doLogout;
+window.doLogout = async function() {
+  _currentUser = null;
+  document.getElementById('userBadge').classList.add('hidden');
+  await _platformLogout();
+};
+
+// ── Helpers ──────────────────────────────────────────────────────────
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+
+function formatDuration(s) {
+  if (!Number.isFinite(s)) return '—';
+  const h = Math.floor(s / 3600), m = Math.floor((s % 3600) / 60), sec = Math.round(s % 60);
+  return h > 0 ? `${h}h ${m}m ${String(sec).padStart(2,'0')}s` : `${m}:${String(sec).padStart(2,'0')}`;
+}
+
+// ── Render ────────────────────────────────────────────────────────────
+function renderSummary(summary) {
+  const nrmse = summary.avgNrmse;
+  const hasNrmse = nrmse != null && isFinite(nrmse);
+  document.getElementById('summaryGrid').innerHTML = `
+    <div class="metric highlight"><div class="value">${summary.avgCda.toFixed(4)}</div><div class="unit">m²</div><div class="label">Mean CdA</div></div>
+    <div class="metric"><div class="value">±${summary.stddev.toFixed(4)}</div><div class="unit">m²</div><div class="label">Std Dev</div></div>
+    <div class="metric"><div class="value">${summary.minCda.toFixed(4)}</div><div class="unit">m²</div><div class="label">Min CdA</div></div>
+    <div class="metric"><div class="value">${summary.maxCda.toFixed(4)}</div><div class="unit">m²</div><div class="label">Max CdA</div></div>
+    <div class="metric" title="${hasNrmse ? '' : 'Raw RMSE: ' + (summary.avgRmse||0).toFixed(3) + ' m'}">
+      <div class="value">${hasNrmse ? (nrmse*100).toFixed(1)+'%' : (summary.avgRmse||0).toFixed(3)}</div>
+      <div class="unit">${hasNrmse ? 'NRMSE' : 'm raw'}</div>
+      <div class="label">Avg Fit Error</div>
+    </div>
+    <div class="metric"><div class="value">${(summary.avgSpeedKmh||0).toFixed(1)}</div><div class="unit">km/h</div><div class="label">Avg Speed</div></div>
+    <div class="metric"><div class="value">${summary.validLaps}/${summary.totalLaps}</div><div class="unit"></div><div class="label">Included Laps</div></div>
+  `;
+}
+
+function renderInsight(summary) {
+  const cda = summary.avgCda;
+  const pct = Math.max(0, Math.min(100, (cda - 0.18) / (0.50 - 0.18) * 100));
+  let posLabel, posCtx;
+  if (cda < 0.22)      { posLabel = 'Pro TT';     posCtx = 'World-class time trial position.' }
+  else if (cda < 0.26) { posLabel = 'Aero Road';  posCtx = 'Excellent aerodynamic position, approaching TT levels.' }
+  else if (cda < 0.30) { posLabel = 'Road Drops'; posCtx = 'Good road position on the drops.' }
+  else if (cda < 0.36) { posLabel = 'Road Hoods'; posCtx = 'Standard road position on the hoods.' }
+  else                 { posLabel = 'Upright';     posCtx = 'Significant aero gains available with position changes.' }
+
+  const std = summary.stddev;
+  let conL, conCls, conNote;
+  if (std < 0.003)      { conL = 'Excellent'; conCls = 'good'; conNote = 'Very consistent laps — reliable estimate' }
+  else if (std < 0.007) { conL = 'Good';      conCls = 'ok';   conNote = 'Minor lap variation — solid result' }
+  else if (std < 0.012) { conL = 'Fair';      conCls = '';     conNote = 'Moderate variation — check course conditions' }
+  else                  { conL = 'Variable';  conCls = 'warn'; conNote = 'High variation — some laps may be unreliable' }
+
+  const nrmseVal = summary.avgNrmse;
+  const hasNrmse = nrmseVal != null && isFinite(nrmseVal);
+  let rmL, rmCls, rmNote, rmDisp;
+  if (hasNrmse) {
+    rmDisp = (nrmseVal * 100).toFixed(1) + '% NRMSE';
+    if (nrmseVal < 0.10)      { rmL = 'Excellent'; rmCls = 'good'; rmNote = 'VE fits altitude very well — high confidence' }
+    else if (nrmseVal < 0.20) { rmL = 'Good';      rmCls = 'ok';   rmNote = 'Good altitude match — result is reliable' }
+    else if (nrmseVal < 0.35) { rmL = 'Fair';      rmCls = '';     rmNote = 'Moderate fit — check altitude calibration' }
+    else                      { rmL = 'Poor';      rmCls = 'warn'; rmNote = 'Poor fit — grade data or GPS altitude issues' }
+  } else {
+    const rmse = summary.avgRmse || 0;
+    rmDisp = rmse.toFixed(3) + ' m RMSE';
+    if (rmse < 1.5)      { rmL = 'Excellent'; rmCls = 'good'; rmNote = 'VE fits altitude very well — high confidence' }
+    else if (rmse < 3.0) { rmL = 'Good';      rmCls = 'ok';   rmNote = 'Good altitude match — result is reliable' }
+    else if (rmse < 5.0) { rmL = 'Fair';      rmCls = '';     rmNote = 'Moderate fit — check altitude calibration' }
+    else                 { rmL = 'Poor';      rmCls = 'warn'; rmNote = 'Poor fit — grade data or GPS altitude issues' }
+  }
+
+  document.getElementById('insightCard').innerHTML = `
+    <div class="insight-hero">
+      <div class="insight-cda-val">${cda.toFixed(4)} <span style="font-size:18px;font-weight:400;color:var(--sub)">m²</span></div>
+      <div class="insight-cda-sub"><strong>${posLabel}</strong> · ${posCtx}</div>
+    </div>
+    <div class="insight-scale-wrap">
+      <div class="insight-scale-bar">
+        <div class="insight-scale-thumb" style="left:${pct.toFixed(1)}%">
+          <div class="insight-scale-val">${cda.toFixed(4)}</div>
+        </div>
+      </div>
+      <div class="insight-scale-axis">
+        <span>0.18 TT</span><span>0.26 Drops</span><span>0.36 Hoods</span><span>0.50 Upright</span>
+      </div>
+    </div>
+    <div class="insight-stats">
+      <div class="insight-stat ${conCls}">
+        <div class="is-val">${conL}</div>
+        <div class="is-lbl">Consistency (±${std.toFixed(4)} m²)</div>
+        <div class="is-note">${conNote}</div>
+      </div>
+      <div class="insight-stat ${rmCls}">
+        <div class="is-val">${rmL}</div>
+        <div class="is-lbl">Fit Quality (${rmDisp})</div>
+        <div class="is-note">${rmNote}</div>
+      </div>
+    </div>
+  `;
+}
+
+function renderLapTable(laps) {
+  const qMap = { Excellent:'q-excellent', Good:'q-good', Fair:'q-fair', Poor:'q-poor', Unreliable:'q-unreliable' };
+  document.getElementById('lapBody').innerHTML = laps.map(l => `
+    <tr>
+      <td>${l.lapId}</td>
+      <td><strong>${isFinite(l.cda) ? l.cda.toFixed(4) : '—'}</strong></td>
+      <td title="${isFinite(l.rmse) ? 'Raw RMSE: ' + l.rmse.toFixed(3) + ' m' : ''}">${l.nrmse != null && isFinite(l.nrmse) ? (l.nrmse*100).toFixed(1)+'%' : isFinite(l.rmse) ? l.rmse.toFixed(3)+' m' : '—'}</td>
+      <td>${formatDuration(l.durationS)}</td>
+      <td>${(l.avgSpeedKmh||0).toFixed(1)} km/h</td>
+      <td>${Number.isFinite(l.avgPowerW) ? l.avgPowerW.toFixed(0)+' W' : '—'}</td>
+      <td>${Number.isFinite(l.avgHeartRateBpm) ? l.avgHeartRateBpm.toFixed(0)+' bpm' : '—'}</td>
+      <td><span class="quality-badge ${qMap[l.quality?.label] || 'q-unreliable'}">${esc(l.quality?.label || 'Unreliable')} (${l.quality?.score ?? 0})</span></td>
+    </tr>
+  `).join('');
+}
+
+function renderCdaChart(laps) {
+  const valid = laps.filter(l => isFinite(l.cda));
+  if (!valid.length) return;
+  const avg = valid.reduce((s, l) => s + l.cda, 0) / valid.length;
+  new Chart(document.getElementById('cdaChart'), {
+    type: 'bar',
+    data: {
+      labels: valid.map(l => 'Lap ' + l.lapId),
+      datasets: [
+        { label: 'CdA (m²)', data: valid.map(l => l.cda), backgroundColor: 'rgba(31,59,136,0.7)', borderColor: '#1f3b88', borderWidth: 1, borderRadius: 4 },
+        { label: 'Mean', data: valid.map(() => avg), type: 'line', borderColor: '#ffa500', borderWidth: 2, borderDash: [6,4], pointRadius: 0, fill: false }
+      ]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: { legend: { position: 'bottom' } },
+      scales: { y: { title: { display: true, text: 'CdA (m²)' }, beginAtZero: false } }
+    }
+  });
+}
+
+function renderConfig(config) {
+  if (!config) return;
+  const g = document.getElementById('configGrid');
+  const row = (label, val) => `<div class="info-tile"><div class="it-label">${label}</div><div class="it-val">${esc(val)}</div></div>`;
+  g.innerHTML =
+    row('Total mass', config.massTotal != null ? config.massTotal + ' kg' : '—') +
+    row('Crr', config.crr != null ? config.crr : '—') +
+    row('Drivetrain loss', config.drivetrainLossFrac != null ? (config.drivetrainLossFrac * 100).toFixed(1) + '%' : '—') +
+    row('Air density ρ', config.rho != null ? config.rho.toFixed(4) + ' kg/m³' : '—') +
+    row('Elevation mode', config.elevationMode || '—') +
+    row('Wind mode', config.windMode || '—');
+}
+
+function renderWeather(wx) {
+  if (!wx) return;
+  document.getElementById('weatherCard').classList.remove('hidden');
+  const fmt = (v, d) => v != null ? (+v).toFixed(d) : '—';
+  document.getElementById('weatherContent').innerHTML = `
+    <div class="wx-row">
+      <div class="wx-tile"><div class="wv">${fmt(wx.tempC,1)}°C</div><div class="wl">Temperature</div></div>
+      <div class="wx-tile"><div class="wv">${fmt(wx.pressureHpa,0)} hPa</div><div class="wl">Pressure</div></div>
+      <div class="wx-tile"><div class="wv">${fmt(wx.humidityPct,0)}%</div><div class="wl">Humidity</div></div>
+      <div class="wx-tile"><div class="wv">${fmt(wx.rho,4)}</div><div class="wl">ρ kg/m³</div></div>
+      <div class="wx-tile"><div class="wv">${fmt(wx.windSpeedMs,1)} m/s</div><div class="wl">Wind speed</div></div>
+      <div class="wx-tile"><div class="wv">${wx.windFromDeg != null ? Math.round(wx.windFromDeg)+'°' : '—'}</div><div class="wl">Wind from</div></div>
+    </div>
+    <div style="font-size:11px;color:var(--sub)">Source: ${esc(wx.source || 'unknown')}</div>
+  `;
+}
+
+// ── Main load ─────────────────────────────────────────────────────────
+async function loadAndRender(user) {
+  const params = new URLSearchParams(window.location.search);
+  const id = params.get('id');
+
+  if (!id) {
+    showError('No analysis ID specified in the URL.');
+    return;
+  }
+
+  try {
+    const record = await AnalysisStore.loadOne(id, user.id);
+
+    if (!record) {
+      showError('Analysis not found or you do not have permission to view it.');
+      return;
+    }
+
+    // Page title
+    const fileName = record.source?.fileName || 'Unknown file';
+    const date = new Date(record.createdAt).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' });
+    document.title = fileName + ' — AeroB Analysis';
+    document.getElementById('analysisTitle').textContent = fileName;
+    document.getElementById('analysisMeta').textContent = 'Saved ' + date + (record.summary?.avgCda != null ? ' · CdA ' + record.summary.avgCda.toFixed(4) + ' m²' : '');
+
+    // Summary
+    if (record.summary) renderSummary(record.summary);
+    else document.getElementById('summaryCard').style.display = 'none';
+
+    // Insight
+    if (record.summary?.avgCda != null) renderInsight(record.summary);
+    else document.getElementById('insightCard').style.display = 'none';
+
+    // Laps
+    if (record.laps?.length) renderLapTable(record.laps);
+
+    // CdA chart
+    if (record.laps?.length) renderCdaChart(record.laps);
+
+    // Config
+    if (record.config) renderConfig(record.config);
+    else document.getElementById('configCard').style.display = 'none';
+
+    // Weather
+    if (record.weather) renderWeather(record.weather);
+
+    // Show the view
+    document.getElementById('loadingState').classList.add('hidden');
+    document.getElementById('analysisView').classList.remove('hidden');
+
+  } catch (e) {
+    showError('Could not load analysis: ' + e.message);
+  }
+}
+
+function showError(msg) {
+  document.getElementById('loadingState').classList.add('hidden');
+  document.getElementById('errorMsg').textContent = msg;
+  document.getElementById('errorState').classList.remove('hidden');
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+  AeroBPlatform.init('estimation', {
+    onReady: user => {
+      showUserBadge(user);
+      loadAndRender(user);
+    }
+  });
+});
+</script>
+</body>
+</html>

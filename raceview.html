@@ -151,7 +151,7 @@ input#gpxFile{display:none}
   </svg>
   <h1>Race<span>View</span> <span class="tag">BETA</span></h1>
   <div class="header-spacer"></div>
-  <div class="user-badge" id="userBadge">
+  <div class="user-badge hidden" id="userBadge">
     <span id="userDisplay">—</span>
     <button onclick="doLogout()">Sign Out</button>
   </div>
@@ -316,14 +316,20 @@ const loadingSet = new Set();
 // ═══════════════════════════════════════════════════════════════════
 function onSignedIn(user) {
   state.currentUser = user;
+  const badge = document.getElementById('userBadge');
+  if (badge) badge.classList.remove('hidden');
   document.getElementById('userDisplay').textContent = user.displayName || user.email.split('@')[0];
 }
 
+// Capture platform doLogout BEFORE this script can shadow it (use assignment, not declaration)
 const _platformLogout = window.doLogout;
-async function doLogout() {
+window.doLogout = async function() {
   state.currentUser = null;
+  const badge = document.getElementById('userBadge');
+  if (badge) badge.classList.add('hidden');
+  if (state.playing) pausePlayer();
   await _platformLogout();
-}
+};
 
 // ═══════════════════════════════════════════════════════════════════
 // GPX Parser

@@ -62,6 +62,7 @@ const Auth = (() => {
     const { data, error } = await _sb
       .from('setups')
       .select('id, name, color, data_points, created_at')
+      .eq('user_id', userId)
       .order('created_at', { ascending: true });
     if (error) { console.warn('Auth.loadSetups:', error.message); return []; }
     return (data || []).map(row => ({
@@ -188,13 +189,35 @@ const AnalysisStore = (() => {
     }));
   }
 
+  async function loadOne(id, userId) {
+    const { data, error } = await _sb
+      .from('analyses')
+      .select('id, created_at, file_name, config, weather, wind_stats, laps, summary')
+      .eq('id', id)
+      .eq('user_id', userId)
+      .single();
+    if (error) { console.warn('AnalysisStore.loadOne:', error.message); return null; }
+    if (!data) return null;
+    return {
+      id:            data.id,
+      schemaVersion: SCHEMA_VERSION,
+      createdAt:     new Date(data.created_at).getTime(),
+      source:        { fileName: data.file_name },
+      config:        data.config,
+      weather:       data.weather,
+      windStats:     data.wind_stats,
+      laps:          data.laps,
+      summary:       data.summary,
+    };
+  }
+
   async function deleteRecord(id) {
     const { error } = await _sb.from('analyses').delete().eq('id', id);
     if (error) { console.warn('AnalysisStore.deleteRecord:', error.message); return false; }
     return true;
   }
 
-  return { buildRecord, save, loadAll, deleteRecord };
+  return { buildRecord, save, loadAll, loadOne, deleteRecord };
 })();
 
 // ── Plans module ─────────────────────────────────────────────────────────────

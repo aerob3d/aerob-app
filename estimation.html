@@ -729,7 +729,7 @@ input[type="checkbox"]{cursor:pointer;width:18px;height:18px;vertical-align:midd
     <div class="history-hdr">
       <div>
         <h3>📋 My Analyses</h3>
-        <p>Click any analysis to restore it — summary, laps and CdA chart reload instantly</p>
+        <p>Click <strong>Open</strong> to view analysis details in a dedicated page</p>
       </div>
       <button class="adv-close" onclick="closeHistoryPanel()">✕</button>
     </div>
@@ -1467,25 +1467,18 @@ async function doOpenPortal(){
   }
 }
 
-const _platformLogout=window.doLogout;
-async function doLogout(){
-  currentUser=null;
-  window.__userPlan=null;
-  setups=[];
-  lapResults=null;fitData=null;
-  document.getElementById('userBadge').style.display='none';
-  document.getElementById('planBadge').style.display='none';
-  document.getElementById('upgradeBtn').style.display='none';
-  document.getElementById('manageBtn').style.display='none';
-  // Reset results panel
-  ['summaryCard','insightCard','benchmarkCard','lapCard','mapCard','setupMgmtCard','comparisonChartCard','calculatorCard','cdaChartCard','rmseChartCard','veChartCard'].forEach(id=>{document.getElementById(id).style.display='none'});
-  document.getElementById('welcomeCard').style.display='';
-  document.getElementById('weatherCard').style.display='none';
-  document.getElementById('runBtn').disabled=true;
-  document.getElementById('reportBtn').disabled=true;
-  document.getElementById('fileName').classList.add('hidden');
+// Capture platform doLogout before this script shadows it (assignment, not declaration = no hoisting)
+const _platformLogout = window.doLogout;
+window.doLogout = async function() {
+  currentUser = null;
+  window.__userPlan = null;
+  document.getElementById('userBadge').style.display = 'none';
+  document.getElementById('planBadge').style.display = 'none';
+  document.getElementById('upgradeBtn').style.display = 'none';
+  document.getElementById('manageBtn').style.display = 'none';
+  // workspace reset and setups clear are handled by the IIFE's doLogout patch
   await _platformLogout();
-}
+};
 
 document.addEventListener('DOMContentLoaded',async ()=>{
   document.querySelectorAll('input[name="windMode"]').forEach(el=>el.addEventListener('change',updateWindAssumptionUI));
@@ -1524,6 +1517,28 @@ document.addEventListener('DOMContentLoaded',async ()=>{
   let modalEditSetupId=null;
   const colorPalette=['#1f3b88','#ffa500','#16a34a','#dc2626','#7c3aed','#0891b2','#ea580c','#6366f1'];
   let cdaChartInst=null,rmseChartInst=null,veChartInst=null,comparisonChartInst=null;
+
+  // ── Hard reset — single source of truth for clearing analysis workspace ──
+  function hardResetWorkspace(){
+    fitData=null;lapResults=null;analysisState=null;lapRmseCache={};
+    excludedLapIds.clear();currentWindStats=null;currentFileName='';
+    window.__lastWeather=null;
+    if(cdaChartInst){cdaChartInst.destroy();cdaChartInst=null}
+    if(rmseChartInst){rmseChartInst.destroy();rmseChartInst=null}
+    if(veChartInst){veChartInst.destroy();veChartInst=null}
+    if(comparisonChartInst){comparisonChartInst.destroy();comparisonChartInst=null}
+    const fn=$('fileName');fn.textContent='';fn.classList.add('hidden');
+    $('welcomeCard').style.display='';
+    ['summaryCard','insightCard','benchmarkCard','lapCard','mapCard',
+     'cdaChartCard','rmseChartCard','veChartCard','weatherCard',
+     'setupMgmtCard','comparisonChartCard','calculatorCard'].forEach(id=>{
+      const el=document.getElementById(id);if(el)el.style.display='none';
+    });
+    $('runBtn').disabled=true;
+    $('clearAnalysisBar').style.display='none';
+    const st=$('status');if(st){st.textContent='';st.className='status'}
+    updateReportButtonState();
+  }
 
   // ── Helpers ───────────────────────────────────────────────────
   const avg=arr=>arr.length?arr.reduce((s,v)=>s+v,0)/arr.length:NaN;
@@ -2535,44 +2550,32 @@ document.addEventListener('DOMContentLoaded',async ()=>{
   function setStatus(type,msg){const el=$('status');el.className='status '+type;el.textContent=msg}
 
   window.clearCurrentAnalysis=function(){
-    if(fitData||lapResults){
-      if(!confirm('Clear the current analysis and return to the empty state?'))return;
-    }
-    // Clear all analysis state
-    fitData=null;lapResults=null;analysisState=null;lapRmseCache={};
-    excludedLapIds.clear();currentWindStats=null;currentFileName='';
-    window.__lastWeather=null;
-    // Destroy chart instances
-    if(cdaChartInst){cdaChartInst.destroy();cdaChartInst=null}
-    if(rmseChartInst){rmseChartInst.destroy();rmseChartInst=null}
-    if(veChartInst){veChartInst.destroy();veChartInst=null}
-    // Reset file label
-    const fn=$('fileName');fn.textContent='';fn.classList.add('hidden');
-    // Reset UI cards
-    $('welcomeCard').style.display='';
-    ['summaryCard','insightCard','benchmarkCard','lapCard','mapCard',
-     'cdaChartCard','rmseChartCard','veChartCard','weatherCard',
-     'setupMgmtCard','comparisonChartCard','calculatorCard'].forEach(id=>{
-      const el=document.getElementById(id);if(el)el.style.display='none';
-    });
-    $('runBtn').disabled=true;
-    $('clearAnalysisBar').style.display='none';
-    const st=$('status');if(st){st.textContent='';st.className='status'}
-    updateReportButtonState();
+    if((fitData||lapResults)&&!confirm('Clear the current analysis and return to the empty state?'))return;
+    hardResetWorkspace();
   };
 
-  // Expose setups to outer scope for auth functions
-  // Auth showApp loads setups and assigns via __setSetups; keep in sync
+  // Patch showApp: ensure clean workspace on every auth, then load cloud setups
   const _origShowApp=window.showApp;
   window.showApp=async function(session){
     _origShowApp(session);
+    hardResetWorkspace(); // always start from a clean slate
     setups=await Auth.loadSetups(session.id);
-    if(setups.length>0){renderSetupList();renderComparisonChart();renderCalculatorTable();$('setupMgmtCard').style.display='';$('comparisonChartCard').style.display='';$('calculatorCard').style.display=''}
-    $('historyBtn').style.display='';  // show History button once logged in
+    if(setups.length>0){
+      renderSetupList();renderComparisonChart();renderCalculatorTable();
+      $('setupMgmtCard').style.display='';
+      $('comparisonChartCard').style.display='';
+      $('calculatorCard').style.display='';
+    }
+    $('historyBtn').style.display='';
   };
-  // Also patch logout to reset setups
-  const _origLogout=window.doLogout;
-  window.doLogout=function(){setups=[];$('historyBtn').style.display='none';$('clearAnalysisBar').style.display='none';_origLogout();updateReportButtonState()};
+  // Patch doLogout: clear workspace + setups, then call outer doLogout (→ platform doLogout)
+  const _outerDoLogout=window.doLogout;
+  window.doLogout=function(){
+    setups=[];
+    $('historyBtn').style.display='none';
+    hardResetWorkspace();
+    return _outerDoLogout();
+  };
 
   // ── Analysis History ──────────────────────────────────────────
   window.openHistoryPanel=async function(){
@@ -2619,94 +2622,10 @@ document.addEventListener('DOMContentLoaded',async ()=>{
           <button class="btn-danger-small delete-btn" style="font-size:11px;padding:6px 10px">Delete</button>
         </div>
       `;
-      row.querySelector('.restore-btn').onclick=()=>restoreAnalysis(rec);
+      row.querySelector('.restore-btn').onclick=()=>window.open('/estimation-analysis?id='+encodeURIComponent(rec.id),'_blank');
       row.querySelector('.delete-btn').onclick=()=>deleteHistoryRecord(rec.id,row);
       body.appendChild(row);
     }
-  }
-
-  function restoreAnalysis(record){
-    closeHistoryPanel();
-    // Reset state — no raw ride records available from a saved analysis snapshot
-    fitData=null;
-    analysisState=null;
-    lapRmseCache={};
-    excludedLapIds.clear();
-    currentWindStats=record.windStats||null;
-    currentFileName=record.source?.fileName||'Analysis';
-
-    // Reconstruct lap results from stored data.
-    // Old records may lack nrmse — fall back gracefully to null.
-    lapResults=(record.laps||[]).map(l=>({
-      lapId:         l.lapId,
-      cda:           l.cda,
-      rmse:          l.rmse,
-      nrmse:         l.nrmse??null,   // null for records saved before NRMSE was added
-      durationS:     l.durationS,
-      avgSpeedKmh:   l.avgSpeedKmh,
-      avgPowerW:     l.avgPowerW,
-      avgHeartRateBpm:l.avgHeartRateBpm,
-      nSamples:      0,               // raw ride data not stored
-      pctKept:       100,
-      quality:       l.quality||{score:0,label:'Unreliable'}
-    }));
-
-    if(lapResults.length===0){setStatus('error','No lap data in this analysis');return}
-
-    // Show filename in dropzone
-    const fn=$('fileName');fn.textContent=currentFileName+' (from history)';fn.classList.remove('hidden');
-    $('welcomeCard').style.display='none';
-    $('clearAnalysisBar').style.display='';
-
-    // Populate UI
-    updateLapTable();initLapButtons();
-    $('lapCard').style.display='';
-    updateSummaryDisplay();
-
-    // CdA chart reconstructs from lap results alone
-    renderCdaChart();$('cdaChartCard').style.display='';
-
-    // RMSE-vs-CdA and VE charts need raw sample data — not available in saved snapshot
-    $('rmseChartCard').style.display='none';
-    $('veChartCard').style.display='none';
-
-    // Map needs GPS records — not available in saved snapshot
-    $('mapCard').style.display='none';
-
-    // Restore weather card if weather was stored
-    if(record.weather){
-      window.__lastWeather={
-        source:   record.weather.source||'archive',
-        meanTemp: record.weather.tempC,
-        meanRh:   record.weather.humidityPct,
-        meanP:    record.weather.pressureHpa,
-        meanWs:   record.weather.windSpeedMs,
-        meanWd:   record.weather.windFromDeg,
-        rho:      record.weather.rho,
-        n:        1
-      };
-      showWeatherCard(window.__lastWeather);
-      $('weatherCard').style.display='';
-    }
-
-    // Repopulate key config fields from stored config
-    if(record.config){
-      if(record.config.massTotal)$('mass').value=record.config.massTotal;
-      if(record.config.crr)$('crr').value=record.config.crr;
-      if(record.config.rho){$('rho').value=record.config.rho;updateRhoBadge('restored')}
-    }
-
-    // Summary + insights
-    const summary=calculateSummary();
-    if(summary){
-      renderInsightsPanel(summary,currentWindStats);
-      $('insightCard').style.display='';
-    }
-    renderBenchmarkCard();
-    updateReportButtonState();
-
-    const dateStr=new Date(record.createdAt).toLocaleDateString();
-    setStatus('info',`Opened analysis from ${dateStr} · Re-upload the original file to access RMSE/VE charts`);
   }
 
   async function deleteHistoryRecord(id,rowEl){
