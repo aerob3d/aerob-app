@@ -1,0 +1,2723 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AeroBestimation — CdA Estimator</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+<script src="/platform.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<style>
+/* ── Reset & Variables ─────────────────────────────────────────── */
+*{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --blue:#1f3b88;--blue-light:#2a4fad;--blue-dark:#142960;
+  --orange:#ffa500;--orange-light:#ffb733;--orange-dark:#cc8400;
+  --bg:#f0f2f7;--card:#fff;--border:#d0d7e3;
+  --text:#1a2236;--sub:#5a6880;--mono:"Consolas","Monaco",monospace;
+  --radius:10px;--shadow:0 2px 12px rgba(31,59,136,.08);
+}
+body{font-family:"Segoe UI","Inter",system-ui,sans-serif;background:var(--bg);color:var(--text);min-height:100vh}
+a{color:var(--blue)}
+
+/* ── Header ────────────────────────────────────────────────────── */
+.header{background:var(--blue);color:#fff;padding:16px 32px;display:flex;align-items:center;gap:16px;box-shadow:0 2px 8px rgba(0,0,0,.15)}
+.header svg{width:44px;height:44px;flex-shrink:0}
+.header h1{font-size:22px;font-weight:700;letter-spacing:.5px}
+.header h1 span{color:var(--orange)}
+.header .tag{font-size:11px;background:var(--orange);color:var(--blue-dark);padding:2px 8px;border-radius:12px;font-weight:700;margin-left:8px}
+.header-spacer{flex:1}
+.user-badge{display:flex;align-items:center;gap:10px;background:rgba(255,255,255,.12);padding:6px 14px;border-radius:20px;flex-shrink:0}
+.user-badge span{font-size:13px;font-weight:600}
+.user-badge button{background:rgba(255,255,255,.18);border:1px solid rgba(255,255,255,.3);color:#fff;padding:4px 12px;border-radius:12px;font-size:12px;cursor:pointer;transition:all .2s}
+.user-badge button:hover{background:rgba(255,255,255,.3)}
+
+/* ── Layout ────────────────────────────────────────────────────── */
+.container{max-width:1400px;margin:0 auto;padding:24px}
+.grid{display:grid;grid-template-columns:340px 1fr;gap:24px;align-items:start}
+@media(max-width:860px){.grid{grid-template-columns:1fr}}
+
+/* ── Cards ─────────────────────────────────────────────────────── */
+.card{background:var(--card);border-radius:var(--radius);border:1px solid var(--border);box-shadow:var(--shadow);padding:20px;margin-bottom:20px}
+.card h2{font-size:15px;color:var(--blue);margin-bottom:14px;display:flex;align-items:center;gap:8px}
+.card h2 .icon{font-size:18px}
+
+/* ── Form Controls ─────────────────────────────────────────────── */
+label{display:block;font-size:12px;font-weight:600;color:var(--sub);margin-bottom:4px;text-transform:uppercase;letter-spacing:.5px}
+input[type="number"],input[type="text"],input[type="password"],input[type="file"],select{
+  width:100%;padding:8px 10px;border:1px solid var(--border);border-radius:6px;
+  font-size:14px;background:#fafbfd;transition:border .2s
+}
+input:focus,select:focus{outline:none;border-color:var(--blue);box-shadow:0 0 0 2px rgba(31,59,136,.12)}
+.field{margin-bottom:12px}
+.field-row{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.field small,.field-note{color:var(--sub);font-size:11px;margin-top:3px;display:block;line-height:1.45}
+
+/* ── Drop zone ─────────────────────────────────────────────────── */
+.dropzone{border:2px dashed var(--border);border-radius:var(--radius);padding:36px 20px;text-align:center;cursor:pointer;transition:all .25s;background:#fafbfd}
+.dropzone:hover,.dropzone.drag-over{border-color:var(--orange);background:#fff8ee}
+.dropzone .icon{font-size:36px;margin-bottom:8px}
+.dropzone p{font-size:14px;color:var(--sub)}
+.dropzone .filename{font-size:13px;color:var(--blue);font-weight:600;margin-top:8px}
+
+/* ── Buttons ───────────────────────────────────────────────────── */
+.btn{display:inline-flex;align-items:center;gap:8px;padding:10px 24px;border:none;border-radius:6px;font-size:14px;font-weight:600;cursor:pointer;transition:all .2s}
+.btn-primary{background:var(--blue);color:#fff}
+.btn-primary:hover{background:var(--blue-light)}
+.btn-primary:disabled{opacity:.5;cursor:not-allowed}
+.btn-primary-small{background:var(--blue);color:#fff;padding:8px 16px;font-size:13px;border:none;border-radius:6px;font-weight:600;cursor:pointer;transition:all .2s}
+.btn-primary-small:hover{background:var(--blue-light)}
+.btn-secondary{background:#f0f2f7;color:var(--text);border:1px solid var(--border);padding:8px 16px;font-size:13px}
+.btn-secondary:hover{background:#e8ebf4}
+.btn-orange-small{background:var(--orange);color:var(--blue-dark);padding:8px 16px;font-size:13px;border:none;border-radius:6px;font-weight:600;cursor:pointer;transition:all .2s}
+.btn-orange-small:hover{background:var(--orange-light)}
+.btn-danger-small{background:#fee2e2;color:#991b1b;border:1px solid #fecaca;padding:8px 12px;font-size:13px;border-radius:6px;cursor:pointer;font-weight:600;transition:all .2s}
+.btn-danger-small:hover{background:#fecaca}
+.btn-group{display:flex;gap:6px;flex-wrap:wrap}
+
+/* ── Preset chips ──────────────────────────────────────────────── */
+.presets{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:14px}
+.preset{font-size:11px;padding:4px 10px;border-radius:14px;cursor:pointer;border:1px solid var(--border);background:#fafbfd;color:var(--sub);transition:all .2s}
+.preset:hover,.preset.active{background:var(--blue);color:#fff;border-color:var(--blue)}
+
+/* ── Results ───────────────────────────────────────────────────── */
+.results-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:12px}
+.metric{text-align:center;padding:14px 10px;background:#f7f9fc;border-radius:8px;border:1px solid #edf0f7}
+.metric .value{font-size:26px;font-weight:700;color:var(--blue)}
+.metric .unit{font-size:12px;color:var(--sub)}
+.metric .label{font-size:11px;color:var(--sub);margin-top:4px;text-transform:uppercase;letter-spacing:.3px}
+.metric.highlight .value{color:var(--orange)}
+
+/* ── Lap table ─────────────────────────────────────────────────── */
+table{width:100%;border-collapse:collapse;font-size:13px}
+th{background:var(--blue);color:#fff;padding:8px 10px;text-align:left;font-weight:600;font-size:11px;text-transform:uppercase;letter-spacing:.4px}
+td{padding:8px 10px;border-bottom:1px solid #eef1f6}
+tr:hover td{background:#f7f9fc}
+tr.excluded td{opacity:0.4;background:#f5f5f5}
+tr.excluded:hover td{background:#efefef}
+.quality-badge{font-size:11px;padding:2px 8px;border-radius:10px;font-weight:600}
+.q-excellent{background:#dcfce7;color:#166534}
+.q-good{background:#e0f2fe;color:#075985}
+.q-fair{background:#fef3c7;color:#92400e}
+.q-poor{background:#fee2e2;color:#991b1b}
+.q-unreliable{background:#f1f5f9;color:#64748b}
+input[type="checkbox"]{cursor:pointer;width:18px;height:18px;vertical-align:middle}
+
+/* ── Charts ────────────────────────────────────────────────────── */
+.chart-container{position:relative;height:280px;margin-top:12px}
+.chart-container-large{position:relative;height:350px;margin-top:12px}
+
+/* ── Status ────────────────────────────────────────────────────── */
+.status{padding:10px 14px;border-radius:6px;font-size:13px;margin-top:12px;display:none}
+.status.info{display:block;background:#e0f2fe;color:#075985;border:1px solid #bae6fd}
+.status.error{display:block;background:#fee2e2;color:#991b1b;border:1px solid #fecaca}
+.status.success{display:block;background:#dcfce7;color:#166534;border:1px solid #bbf7d0}
+.status.warning{display:block;background:#fef3c7;color:#92400e;border:1px solid #fde68a}
+
+/* ── Setup Management ──────────────────────────────────────────── */
+.setup-item{background:#f9fafc;border:1px solid #e8ebf4;border-radius:8px;padding:12px;margin-bottom:10px;display:flex;align-items:center;justify-content:space-between;gap:12px}
+.setup-item-name{font-weight:600;color:var(--text);flex:1}
+.setup-item-stats{font-size:12px;color:var(--sub);flex:1}
+.setup-color-indicator{width:16px;height:16px;border-radius:50%;flex-shrink:0;border:2px solid #ddd}
+.setup-item-actions{display:flex;gap:6px;flex-wrap:wrap}
+.setup-list{max-height:300px;overflow-y:auto}
+.setup-item-main{flex:1;min-width:0}
+.setup-item-bar{margin-top:8px;height:10px;border-radius:999px;background:#edf0f7;position:relative;overflow:hidden}
+.setup-item-bar-fill{position:absolute;top:0;bottom:0;left:0;border-radius:999px;opacity:.95}
+.setup-item-bar-labels{display:flex;justify-content:space-between;font-size:10px;color:var(--sub);margin-top:5px}
+.setup-lap-list{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px}
+.setup-lap-pill{display:inline-flex;align-items:center;gap:6px;padding:4px 8px;border-radius:999px;background:#fff;border:1px solid #e2e8f0;font-size:11px;color:var(--text);line-height:1.3}
+.setup-lap-pill small{color:var(--sub)}
+.setup-lap-remove{border:none;background:none;color:#991b1b;font-size:14px;line-height:1;cursor:pointer;padding:0 0 0 2px}
+.setup-lap-remove:hover{color:#7f1d1d}
+.editable-name{cursor:pointer;padding:2px 4px;border-radius:4px;transition:all .2s}
+.editable-name:hover{background:rgba(31,59,136,0.08)}
+.editable-name.editing{background:#fff;border:1px solid var(--blue);padding:2px 4px}
+.hidden{display:none!important}
+.error-bar-toggle{display:inline-flex;gap:6px;align-items:center;margin-bottom:12px;font-size:12px}
+.error-bar-toggle button{background:none;border:1px solid var(--border);padding:4px 12px;border-radius:4px;cursor:pointer;font-size:12px;color:var(--sub);transition:all .2s}
+.error-bar-toggle button.active{background:var(--blue);color:#fff;border-color:var(--blue)}
+.comparison-bands{display:grid;gap:10px;margin:8px 0 14px}
+.comparison-band{background:#f9fafc;border:1px solid #e8ebf4;border-radius:10px;padding:10px 12px}
+.comparison-band-top{display:flex;justify-content:space-between;gap:10px;font-size:12px;align-items:center}
+.comparison-band-track{position:relative;height:12px;background:#edf0f7;border-radius:999px;margin-top:8px;overflow:hidden}
+.comparison-band-range,.comparison-band-mean{position:absolute;top:50%;transform:translateY(-50%)}
+.comparison-band-range{height:6px;border-radius:999px;opacity:.35}
+.comparison-band-mean{width:12px;height:12px;border-radius:50%;border:2px solid #fff;box-shadow:0 1px 4px rgba(0,0,0,.2)}
+
+.assumption-card{background:linear-gradient(180deg,#f8fbff 0%,#fff 100%)}
+.assumption-step{border:1px solid #e5ebf7;border-radius:10px;padding:12px 14px;background:#fff;margin-bottom:10px}
+.assumption-step-title{font-size:12px;font-weight:700;color:var(--blue);text-transform:uppercase;letter-spacing:.4px;margin-bottom:8px}
+.option-grid{display:grid;gap:8px}
+.option-grid.two{grid-template-columns:repeat(2,minmax(0,1fr))}
+.option-pill{border:1px solid var(--border);border-radius:9px;padding:10px 12px;background:#fafbfd;cursor:pointer;display:block}
+.option-pill input{margin-right:6px}
+.option-pill strong{display:block;font-size:13px;color:var(--text);margin-bottom:2px}
+.option-pill span{font-size:11px;color:var(--sub);line-height:1.4}
+@media(max-width:480px){.option-grid.two{grid-template-columns:1fr}}
+
+.report-actions{display:flex;gap:10px;flex-wrap:wrap;margin-top:14px}
+.helper-note{font-size:11px;color:var(--sub);line-height:1.5}
+
+.map-wrap{position:relative}
+#mapBackdrop{position:absolute;inset:0;display:none;overflow:hidden;background:#eef2f9;z-index:0}
+#mapBackdrop .map-tile{position:absolute;width:256px;height:256px;max-width:none;user-select:none;-webkit-user-drag:none;filter:saturate(.96) contrast(1.03)}
+#mapCanvas{position:relative;z-index:1;background:transparent}
+
+.benchmark-card{background:linear-gradient(180deg,#fcfdff 0%,#f7faff 100%)}
+.benchmark-placeholder{border:1px dashed #c4d8ff;border-radius:10px;padding:14px;background:#f5f9ff}
+.benchmark-placeholder strong{display:block;color:var(--blue);margin-bottom:4px}
+
+.calc-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;margin-bottom:12px}
+.calc-results{overflow-x:auto}
+.calc-note{font-size:11px;color:var(--sub);margin-top:8px;line-height:1.5}
+@media(max-width:860px){.calc-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:480px){.calc-grid{grid-template-columns:1fr}}
+
+/* ── Footer ────────────────────────────────────────────────────── */
+.footer{text-align:center;padding:24px;font-size:12px;color:var(--sub)}
+
+/* ═══ WEATHER CARD ════════════════════════════════════════════════ */
+.wx-loading{text-align:center;padding:18px 0;color:var(--sub);font-size:13px}
+.wx-loading .spin{display:inline-block;width:16px;height:16px;border:2px solid var(--border);border-top-color:var(--blue);border-radius:50%;animation:spin .7s linear infinite;vertical-align:middle;margin-right:8px}
+@keyframes spin{to{transform:rotate(360deg)}}
+.wx-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:12px}
+.wx-tile{text-align:center;padding:10px 4px;background:#f0f6ff;border-radius:8px;border:1px solid #d8e6ff}
+.wx-tile .wv{font-size:16px;font-weight:700;color:var(--blue)}
+.wx-tile .wl{font-size:10px;color:var(--sub);text-transform:uppercase;letter-spacing:.3px;margin-top:2px}
+.wx-source{display:inline-block;font-size:11px;padding:3px 9px;border-radius:10px;background:#e0f2fe;color:#075985;margin-bottom:10px}
+.wx-source.arc{background:#fef3c7;color:#92400e}
+.wx-wind-note{font-size:11px;color:var(--sub);background:#fafbfd;border:1px solid var(--border);border-radius:6px;padding:7px 10px;margin-top:6px;line-height:1.5}
+.wx-err{font-size:12px;color:#92400e;background:#fef3c7;border:1px solid #fde68a;border-radius:6px;padding:8px 10px}
+
+/* ═══ RHO BADGE ═══════════════════════════════════════════════════ */
+.rho-badge{display:inline-flex;align-items:center;gap:8px;background:#f0f6ff;border:1px solid #d8e6ff;border-radius:8px;padding:7px 12px;font-size:14px;font-weight:700;color:var(--blue);margin-top:4px}
+.rho-src{font-size:10px;color:var(--sub);font-weight:400}
+
+/* ═══ ADVANCED PANEL ══════════════════════════════════════════════ */
+.adv-scrim{position:fixed;inset:0;background:rgba(0,0,0,.28);z-index:900;opacity:0;pointer-events:none;transition:opacity .3s}
+.adv-scrim.open{opacity:1;pointer-events:auto}
+.adv-panel{position:fixed;top:0;right:0;width:380px;max-width:100vw;height:100vh;background:#fff;box-shadow:-6px 0 30px rgba(0,0,0,.18);z-index:901;transform:translateX(100%);transition:transform .3s ease;overflow-y:auto}
+.adv-panel.open{transform:translateX(0)}
+.adv-hdr{position:sticky;top:0;background:#fff;z-index:1;padding:18px 20px 14px;border-bottom:2px solid var(--border);display:flex;align-items:center;justify-content:space-between}
+.adv-hdr h3{font-size:15px;font-weight:700;color:var(--blue)}
+.adv-hdr p{font-size:11px;color:var(--sub);margin-top:2px}
+.adv-close{background:none;border:none;font-size:22px;cursor:pointer;color:var(--sub);padding:0 4px;transition:color .2s;line-height:1}
+.adv-close:hover{color:var(--text)}
+.adv-body{padding:20px}
+.adv-sec{margin-bottom:22px}
+.adv-sec h4{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.8px;color:var(--sub);margin-bottom:12px;padding-bottom:6px;border-bottom:1px solid var(--border)}
+.adv-hint{font-size:11px;color:var(--sub);margin-top:-6px;margin-bottom:10px;line-height:1.5}
+.adv-trigger{display:flex;align-items:center;gap:10px;margin-bottom:14px}
+.adv-trigger button{background:#f0f2f7;color:var(--sub);border:1px solid var(--border);border-radius:6px;padding:8px 14px;font-size:12px;font-weight:600;cursor:pointer;transition:all .2s;display:inline-flex;align-items:center;gap:5px}
+.adv-trigger button:hover{background:#e8ebf4;color:var(--text)}
+.adv-trigger small{font-size:11px;color:var(--sub)}
+
+/* ═══ LAP MANAGEMENT ══════════════════════════════════════════════ */
+.lap-actions{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px;align-items:center}
+.lap-actions .spacer{flex:1}
+.lap-toggle{padding:3px 10px;border-radius:12px;font-size:11px;font-weight:600;border:none;cursor:pointer;transition:all .15s;line-height:1.6}
+.lap-toggle.inc{background:#dcfce7;color:#166534}
+.lap-toggle.inc:hover{background:#bbf7d0}
+.lap-toggle.exc{background:#f1f5f9;color:#94a3b8}
+.lap-toggle.exc:hover{background:#e2e8f0;color:#64748b}
+.setup-tags{display:flex;gap:3px;flex-wrap:wrap}
+.setup-tag{font-size:9px;padding:1px 7px;border-radius:8px;color:#fff;font-weight:700;letter-spacing:.2px;line-height:1.7;white-space:nowrap}
+
+/* ═══ SETUP MODAL ═════════════════════════════════════════════════ */
+.smodal-overlay{position:fixed;inset:0;background:rgba(10,20,50,.6);backdrop-filter:blur(3px);z-index:1500;display:flex;align-items:center;justify-content:center;opacity:0;pointer-events:none;transition:opacity .25s}
+.smodal-overlay.open{opacity:1;pointer-events:auto}
+.smodal{background:#fff;border-radius:16px;width:100%;max-width:540px;max-height:85vh;overflow:hidden;box-shadow:0 24px 60px rgba(0,0,0,.35);display:flex;flex-direction:column;margin:20px;transform:translateY(12px);transition:transform .25s}
+.smodal-overlay.open .smodal{transform:translateY(0)}
+.smodal-hdr{padding:20px 24px 14px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between}
+.smodal-hdr h3{font-size:17px;font-weight:700;color:var(--blue)}
+.smodal-body{padding:20px 24px;overflow-y:auto;flex:1}
+.smodal-laps{max-height:300px;overflow-y:auto;border:1px solid var(--border);border-radius:8px;margin-top:10px}
+.smodal-lap{display:flex;align-items:center;gap:10px;padding:10px 14px;border-bottom:1px solid #f0f2f7;transition:background .12s;cursor:pointer}
+.smodal-lap:last-child{border-bottom:none}
+.smodal-lap:hover{background:#f7f9fc}
+.smodal-lap input[type="checkbox"]{flex-shrink:0}
+.smodal-lap-info{flex:1;display:flex;align-items:center;gap:12px;font-size:13px}
+.smodal-lap-info .ln{font-weight:700;color:var(--blue);min-width:46px}
+.smodal-lap-info .lc{font-weight:600}
+.smodal-preview{background:#f7f9fc;border:1px solid #edf0f7;border-radius:8px;padding:14px;margin-top:16px;text-align:center}
+.smodal-preview .pv{font-size:24px;font-weight:700;color:var(--blue)}
+.smodal-preview .ps{font-size:12px;color:var(--sub);margin-top:4px}
+.smodal-preview.empty .pv{font-size:14px;color:var(--sub);font-weight:400}
+.smodal-ftr{padding:16px 24px;border-top:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;gap:10px}
+.smodal-ftr .left{display:flex;gap:8px}
+
+/* ═══ RIDE MAP ════════════════════════════════════════════════════ */
+.map-wrap{position:relative;border-radius:8px;overflow:hidden;background:#eef2f9;margin-bottom:12px;line-height:0}
+#mapCanvas{display:block;width:100%;height:260px;cursor:default}
+.map-no-gps{padding:32px 16px;text-align:center;color:var(--sub);font-size:13px;background:#f7f9fc;border-radius:8px;border:1px dashed var(--border);line-height:1.5}
+.map-stats{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-top:4px}
+.map-stat{text-align:center;background:#f7f9fc;border-radius:8px;padding:9px 6px;border:1px solid #edf0f7}
+.map-stat .sv{font-size:16px;font-weight:700;color:var(--blue);line-height:1.2}
+.map-stat .sl{font-size:10px;color:var(--sub);text-transform:uppercase;letter-spacing:.4px;margin-top:2px}
+@media(max-width:480px){.map-stats{grid-template-columns:repeat(2,1fr)}}
+
+/* ═══ WEATHER V2 ══════════════════════════════════════════════════ */
+.wx2-source{display:inline-flex;align-items:center;gap:5px;font-size:11px;padding:3px 9px;border-radius:10px;background:#e0f2fe;color:#075985;margin-bottom:10px;font-weight:500}
+.wx2-source.arc{background:#fef3c7;color:#92400e}
+.wx2-hero{display:flex;gap:10px;margin-bottom:10px}
+.wx2-temp{flex:1;background:linear-gradient(135deg,var(--blue) 0%,var(--blue-light) 100%);color:#fff;border-radius:10px;padding:16px 12px;text-align:center;min-width:90px}
+.wx2-temp .wt-val{font-size:30px;font-weight:800;line-height:1}
+.wx2-temp .wt-lbl{font-size:10px;opacity:.75;text-transform:uppercase;letter-spacing:.6px;margin-top:5px}
+.wx2-wind{flex:1.5;background:#f7f9fc;border:1px solid #edf0f7;border-radius:10px;padding:12px;display:flex;align-items:center;gap:12px}
+.wx2-wind-speed{font-size:18px;font-weight:700;color:var(--blue);line-height:1.2}
+.wx2-wind-dir{font-size:12px;color:var(--sub);margin-top:3px}
+.wx2-row{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:10px}
+.wx2-tile{background:#f7f9fc;border:1px solid #edf0f7;border-radius:8px;padding:10px 6px;text-align:center}
+.wx2-tile .wv{font-size:15px;font-weight:700;color:var(--blue);line-height:1.2}
+.wx2-tile .wl{font-size:10px;color:var(--sub);text-transform:uppercase;letter-spacing:.3px;margin-top:3px}
+.wx2-tile.rho-tile{background:linear-gradient(135deg,#f0f6ff,#e4edff);border-color:#c4d8ff}
+.wx2-tile.rho-tile .wv{color:var(--blue-dark);font-size:17px}
+.wx2-apply{background:var(--blue);color:#fff;border:none;border-radius:8px;padding:10px;width:100%;font-size:13px;font-weight:600;cursor:pointer;transition:background .2s;display:flex;align-items:center;justify-content:center;gap:6px;margin-bottom:8px}
+.wx2-apply:hover{background:var(--blue-light)}
+.wx2-note{font-size:11px;color:var(--sub);padding:7px 10px;background:#fafbfd;border:1px solid var(--border);border-radius:6px;line-height:1.5}
+
+/* ═══ INSIGHT PANEL ═══════════════════════════════════════════════ */
+.insight-hero{text-align:center;padding:12px 0 8px}
+.insight-cda-val{font-size:38px;font-weight:800;color:var(--blue);line-height:1}
+.insight-cda-sub{font-size:13px;color:var(--sub);margin-top:5px;line-height:1.4}
+.insight-scale-wrap{margin:18px 0 12px}
+.insight-scale-bar{position:relative;height:8px;background:linear-gradient(to right,#1f3b88 0%,#16a34a 28%,#eab308 55%,#ea580c 78%,#dc2626 100%);border-radius:4px;margin-bottom:6px}
+.insight-scale-thumb{position:absolute;top:50%;width:18px;height:18px;background:#fff;border:3px solid var(--blue);border-radius:50%;box-shadow:0 2px 8px rgba(31,59,136,.3);transform:translate(-50%,-50%)}
+.insight-scale-val{position:absolute;top:-22px;left:50%;transform:translateX(-50%);font-size:10px;font-weight:700;color:var(--blue);white-space:nowrap;background:#fff;padding:2px 5px;border-radius:4px;border:1px solid #d0d7e3;box-shadow:0 1px 3px rgba(0,0,0,.08)}
+.insight-scale-axis{display:flex;justify-content:space-between;font-size:10px;color:var(--sub)}
+.insight-stats{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin:14px 0 4px}
+.insight-stat{background:#f7f9fc;border-radius:8px;padding:12px;border:1px solid #edf0f7}
+.insight-stat .is-val{font-size:14px;font-weight:700;color:var(--blue)}
+.insight-stat .is-lbl{font-size:11px;font-weight:600;color:var(--sub);text-transform:uppercase;letter-spacing:.3px;margin-top:1px}
+.insight-stat .is-note{font-size:11px;color:var(--sub);margin-top:5px;line-height:1.45}
+.insight-stat.good .is-val{color:#16a34a}
+.insight-stat.warn .is-val{color:#ea580c}
+.insight-stat.ok .is-val{color:#0891b2}
+.insight-cta{background:linear-gradient(135deg,#142960 0%,#1f3b88 100%);border-radius:10px;padding:16px;margin-top:14px;color:#fff;display:flex;align-items:center;gap:14px}
+.insight-cta-body{flex:1}
+.insight-cta-body h4{font-size:14px;font-weight:700;margin-bottom:4px}
+.insight-cta-body p{font-size:12px;opacity:.82;line-height:1.5}
+.insight-cta-btn{background:var(--orange);color:var(--blue-dark);border:none;border-radius:8px;padding:10px 16px;font-size:12px;font-weight:700;cursor:pointer;white-space:nowrap;transition:all .2s;flex-shrink:0;text-decoration:none;display:inline-block;line-height:1.4}
+.insight-cta-btn:hover{background:var(--orange-light);color:var(--blue-dark)}
+
+/* ═══ WELCOME V2 ══════════════════════════════════════════════════ */
+.welcome-steps{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin:16px 0}
+.welcome-step{text-align:center;padding:14px 8px;background:#f7f9fc;border-radius:10px;border:1px solid #edf0f7}
+.welcome-step .ws-icon{font-size:26px;margin-bottom:7px}
+.welcome-step .ws-title{font-size:12px;font-weight:700;color:var(--text);margin-bottom:4px}
+.welcome-step .ws-desc{font-size:11px;color:var(--sub);line-height:1.45}
+.welcome-privacy{display:flex;align-items:center;gap:6px;font-size:11px;color:var(--sub);background:#f7f9fc;border-radius:7px;padding:7px 10px;margin:10px 0;border:1px solid #edf0f7}
+.welcome-cta-card{background:linear-gradient(135deg,#142960,#1f3b88);border-radius:10px;padding:16px 18px;display:flex;align-items:center;gap:14px;margin-top:6px}
+.welcome-cta-card .wc-text{flex:1;color:#fff}
+.welcome-cta-card .wc-text h4{font-size:13px;font-weight:700;margin-bottom:3px}
+.welcome-cta-card .wc-text p{font-size:11px;opacity:.8;line-height:1.4}
+.welcome-cta-card .wc-btn{background:var(--orange);color:var(--blue-dark);border:none;border-radius:8px;padding:9px 14px;font-size:12px;font-weight:700;cursor:pointer;white-space:nowrap;transition:all .2s;flex-shrink:0;text-decoration:none;display:inline-block;line-height:1.4}
+.welcome-cta-card .wc-btn:hover{background:var(--orange-light)}
+
+/* ═══ PLAN BADGE & UPGRADE BUTTON ════════════════════════════════ */
+.plan-badge{font-size:11px;font-weight:700;padding:4px 10px;border-radius:12px;letter-spacing:.3px;flex-shrink:0}
+.plan-badge.free{background:rgba(255,255,255,.15);color:rgba(255,255,255,.85);border:1px solid rgba(255,255,255,.25)}
+.plan-badge.pro{background:var(--orange);color:var(--blue-dark);border:none}
+.btn-upgrade{background:var(--orange);color:var(--blue-dark);border:none;padding:6px 14px;border-radius:12px;font-size:12px;font-weight:700;cursor:pointer;transition:all .2s;flex-shrink:0}
+.btn-upgrade:hover{background:var(--orange-light)}
+.btn-manage{background:rgba(255,255,255,.18);border:1px solid rgba(255,255,255,.3);color:#fff;padding:4px 12px;border-radius:12px;font-size:12px;cursor:pointer;transition:all .2s;flex-shrink:0}
+.btn-manage:hover{background:rgba(255,255,255,.3)}
+
+/* ═══ UPGRADE MODAL ══════════════════════════════════════════════ */
+.upgrade-overlay{position:fixed;inset:0;background:rgba(10,20,50,.65);backdrop-filter:blur(4px);z-index:2000;display:flex;align-items:center;justify-content:center;opacity:0;pointer-events:none;transition:opacity .25s}
+.upgrade-overlay.open{opacity:1;pointer-events:auto}
+.upgrade-modal{background:#fff;border-radius:16px;width:100%;max-width:460px;margin:20px;box-shadow:0 24px 60px rgba(0,0,0,.35);overflow:hidden;transform:translateY(10px);transition:transform .25s}
+.upgrade-overlay.open .upgrade-modal{transform:translateY(0)}
+.upgrade-modal-hdr{background:linear-gradient(135deg,#142960,#1f3b88);padding:24px;color:#fff;text-align:center}
+.upgrade-modal-hdr h3{font-size:20px;font-weight:800;margin-bottom:6px}
+.upgrade-modal-hdr p{font-size:13px;opacity:.85;line-height:1.5}
+.upgrade-modal-body{padding:24px}
+.upgrade-limit-bar{background:#fef3c7;border:1px solid #fde68a;border-radius:8px;padding:12px 14px;margin-bottom:20px;font-size:13px;color:#92400e;display:flex;align-items:center;gap:8px}
+.upgrade-features{list-style:none;margin-bottom:24px}
+.upgrade-features li{display:flex;align-items:center;gap:10px;font-size:14px;color:var(--text);padding:6px 0;border-bottom:1px solid #f0f2f7}
+.upgrade-features li:last-child{border-bottom:none}
+.upgrade-features .check{color:#16a34a;font-size:16px;flex-shrink:0}
+.upgrade-features .cross{color:#9ca3af;font-size:16px;flex-shrink:0}
+.upgrade-cta-btn{width:100%;padding:14px;background:var(--blue);color:#fff;border:none;border-radius:8px;font-size:15px;font-weight:700;cursor:pointer;transition:all .2s;margin-bottom:10px}
+.upgrade-cta-btn:hover{background:var(--blue-light)}
+.upgrade-cta-btn:disabled{opacity:.6;cursor:not-allowed}
+.upgrade-cancel-link{display:block;text-align:center;font-size:12px;color:var(--sub);cursor:pointer;padding:4px}
+.upgrade-cancel-link:hover{color:var(--text)}
+.upgrade-err{font-size:13px;color:#dc2626;background:#fee2e2;border-radius:6px;padding:8px 12px;margin-bottom:12px;display:none}
+.upgrade-err.show{display:block}
+
+/* ═══ ANALYSIS HISTORY MODAL ══════════════════════════════════════ */
+.history-overlay{position:fixed;inset:0;background:rgba(10,20,50,.55);backdrop-filter:blur(3px);z-index:1800;display:flex;align-items:center;justify-content:center;opacity:0;pointer-events:none;transition:opacity .25s}
+.history-overlay.open{opacity:1;pointer-events:auto}
+.history-modal{background:#fff;border-radius:16px;width:100%;max-width:720px;max-height:88vh;display:flex;flex-direction:column;margin:16px;box-shadow:0 24px 60px rgba(0,0,0,.35);transform:translateY(10px);transition:transform .25s}
+.history-overlay.open .history-modal{transform:translateY(0)}
+.history-hdr{padding:18px 22px 14px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;flex-shrink:0}
+.history-hdr h3{font-size:16px;font-weight:700;color:var(--blue)}
+.history-hdr p{font-size:11px;color:var(--sub);margin-top:2px}
+.history-body{padding:16px 22px;overflow-y:auto;flex:1}
+.history-empty{text-align:center;padding:36px 20px;color:var(--sub);font-size:14px}
+.history-row{display:grid;grid-template-columns:1fr auto;gap:12px;align-items:center;padding:12px 14px;border:1px solid #edf0f7;border-radius:10px;margin-bottom:8px;background:#fafbfd;transition:border-color .15s}
+.history-row:hover{border-color:var(--blue)}
+.history-row-main{}
+.history-row-title{font-size:13px;font-weight:700;color:var(--text)}
+.history-row-meta{font-size:12px;color:var(--sub);margin-top:3px;line-height:1.5}
+.history-row-actions{display:flex;gap:6px;flex-shrink:0}
+.history-loading{text-align:center;padding:24px;color:var(--sub);font-size:13px}
+</style>
+</head>
+<body>
+
+<!-- ═══ ADVANCED PANEL ══════════════════════════════════════════ -->
+<div id="advScrim" class="adv-scrim" onclick="closeAdv()"></div>
+<div id="advPanel" class="adv-panel">
+  <div class="adv-hdr">
+    <div><h3>⚙️ Advanced Parameters</h3><p>For experienced users — fine-tunes the physics model</p></div>
+    <button class="adv-close" onclick="closeAdv()">✕</button>
+  </div>
+  <div class="adv-body">
+
+    <div class="adv-sec">
+      <h4>Bike Physics</h4>
+      <div class="adv-hint">Crr and drivetrain efficiency affect all results. Use your measured values or accepted defaults.</div>
+      <div class="field-row">
+        <div class="field"><label>Init CdA (m²)</label><input type="number" id="cda" value="0.28" step="0.005" min="0.1" max="1.0"><small>Starting estimate (hint only)</small></div>
+        <div class="field"><label>Crr</label><input type="number" id="crr" value="0.004" step="0.0005" min="0.001" max="0.02"><small>Rolling resistance</small></div>
+      </div>
+      <div class="field"><label>Drivetrain loss (fraction)</label><input type="number" id="dtLoss" value="0.03" step="0.005" min="0" max="0.15"><small>0.03 = 3% (standard road bike)</small></div>
+    </div>
+
+    <div class="adv-sec">
+      <h4>Air Density</h4>
+      <div class="adv-hint">Auto-calculated from temperature, pressure and humidity. Applied automatically from weather when GPS is available.</div>
+      <div class="field-row">
+        <div class="field"><label>Pressure (hPa)</label><input type="number" id="pressHpa" value="1013.25" step="0.5" oninput="syncRho()"></div>
+        <div class="field"><label>Humidity (%)</label><input type="number" id="rhPct" value="50" step="1" min="0" max="100" oninput="syncRho()"></div>
+      </div>
+      <div class="field">
+        <label>Air density ρ (kg/m³)</label>
+        <input type="number" id="rho" value="1.205" step="0.001" min="0.8" max="1.6" oninput="updateRhoBadge()">
+        <small>Auto-updated from T / P / RH above</small>
+      </div>
+    </div>
+
+    <div class="adv-sec">
+      <h4>Analysis Settings</h4>
+      <div class="field-row">
+        <div class="field"><label>Smooth window (s)</label><input type="number" id="smooth" value="5" step="0.5" min="0" max="30"><small>Higher = less noise</small></div>
+        <div class="field"><label>Alignment start (s)</label><input type="number" id="alignStart" value="5" step="1" min="0" max="60"><small>Offset alignment window</small></div>
+      </div>
+      <div class="field-row">
+        <div class="field"><label>Min CdA (m²)</label><input type="number" id="cdaMin" value="0.18" step="0.01" min="0.05" max="1.0"></div>
+        <div class="field"><label>Max CdA (m²)</label><input type="number" id="cdaMax" value="0.35" step="0.01" min="0.1" max="1.5"></div>
+      </div>
+      <div class="field"><label>Search step (m²)</label><input type="number" id="cdaStep" value="0.005" step="0.001" min="0.001" max="0.05"></div>
+      <div class="field"><label>Tailwind Override (m/s)</label><input type="number" id="wind" value="0" step="0.1"><small>Positive = tailwind · Negative = headwind. Auto-filled from the wind assumption above, but you can override it here before analyzing.</small></div>
+    </div>
+
+    <div class="adv-sec">
+      <h4>Data Prefilter</h4>
+      <div class="adv-hint">Removes unreliable samples before fitting. Defaults handle the vast majority of rides.</div>
+      <div class="field-row">
+        <div class="field"><label>Max power (W)</label><input type="number" id="maxPwr" value="2500" step="50" min="500" max="5000"></div>
+        <div class="field"><label>Min speed (m/s)</label><input type="number" id="minSpd" value="2.0" step="0.1" min="0.5" max="10"></div>
+      </div>
+      <div class="field-row">
+        <div class="field"><label>Max accel (m/s²)</label><input type="number" id="maxAcc" value="5.0" step="0.5" min="1" max="20"></div>
+        <div class="field"><label>Max dt factor</label><input type="number" id="maxDtF" value="3.0" step="0.5" min="1" max="10"></div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- ═══ HEADER ═══════════════════════════════════════════════════ -->
+<div class="header">
+  <img src="/Logo.png" alt="AeroB logo" style="height:40px;width:auto;filter:brightness(0) invert(1)">
+  <h1>Aero<span>B</span>estimation <span class="tag">WEB v3</span></h1>
+  <div class="header-spacer"></div>
+  <div class="plan-badge free" id="planBadge" style="display:none">FREE</div>
+  <button class="btn-upgrade" id="upgradeBtn" style="display:none" onclick="openUpgradeModal()">⚡ Upgrade</button>
+  <button class="btn-manage" id="manageBtn" style="display:none" onclick="doOpenPortal()">Manage Plan</button>
+  <button class="btn-manage" id="historyBtn" style="display:none" onclick="openHistoryPanel()">📋 History</button>
+  <div class="user-badge" id="userBadge" style="display:none">
+    <span id="userDisplay">👤</span>
+    <button onclick="doLogout()">Sign Out</button>
+  </div>
+</div>
+
+<!-- ═══ MAIN ═════════════════════════════════════════════════════ -->
+<div class="container">
+<div class="grid">
+
+<!-- ─── LEFT PANEL ─────────────────────────────────────────────── -->
+<div>
+  <!-- File Upload -->
+  <div class="card">
+    <h2><span class="icon">📂</span> Ride File</h2>
+    <div class="dropzone" id="dropzone">
+      <div class="icon">🚴</div>
+      <p>Drop your <strong>.FIT</strong> or <strong>.GPX</strong> file here<br>or click to browse</p>
+      <div class="filename hidden" id="fileName"></div>
+    </div>
+    <input type="file" id="fileInput" accept=".fit,.FIT,.gpx,.GPX" style="display:none">
+  </div>
+
+  <!-- Weather Card -->
+  <div class="card" id="weatherCard" style="display:none">
+    <h2><span class="icon">🌤️</span> Ride Weather</h2>
+    <div id="wxContent"><div class="wx-loading"><span class="spin"></span>Fetching weather data…</div></div>
+  </div>
+
+  <!-- Rider & Bike -->
+  <div class="card">
+    <h2><span class="icon">🏃</span> Rider &amp; Bike</h2>
+    <label style="margin-bottom:6px">Position preset</label>
+    <div class="presets">
+      <div class="preset active" data-mass="82" data-cda="0.28" data-crr="0.004">Road (drops)</div>
+      <div class="preset" data-mass="82" data-cda="0.32" data-crr="0.004">Road (hoods)</div>
+      <div class="preset" data-mass="82" data-cda="0.22" data-crr="0.004">TT / Tri</div>
+      <div class="preset" data-mass="85" data-cda="0.35" data-crr="0.006">Gravel</div>
+    </div>
+    <div class="field">
+      <label>Total mass (kg) <span style="font-weight:400;text-transform:none;letter-spacing:0;font-size:11px">— rider + bike + kit</span></label>
+      <input type="number" id="mass" value="82" step="0.5" min="40" max="200">
+    </div>
+    <div class="field">
+      <label>Height (cm)</label>
+      <input type="number" id="heightCm" value="182" step="1" min="120" max="230">
+      <small>Used for future peer comparison features.</small>
+    </div>
+  </div>
+
+  <div class="card assumption-card">
+    <h2><span class="icon">🧭</span> Analysis Assumptions</h2>
+    <div class="assumption-step">
+      <div class="assumption-step-title">Step 1 · Terrain</div>
+      <div class="option-grid two">
+        <label class="option-pill">
+          <input type="radio" name="elevationMode" value="file" checked>
+          <strong>Use FIT elevation</strong>
+          <span>Best for realistic VE analysis on your measured course.</span>
+        </label>
+        <label class="option-pill">
+          <input type="radio" name="elevationMode" value="flat">
+          <strong>Assume flat terrain</strong>
+          <span>Useful when altitude data is noisy or the test was effectively flat.</span>
+        </label>
+      </div>
+    </div>
+    <div class="assumption-step">
+      <div class="assumption-step-title">Step 2 · Wind</div>
+      <div class="option-grid">
+        <label class="option-pill">
+          <input type="radio" name="windMode" value="zero" checked>
+          <strong>Assume zero wind</strong>
+          <span>Recommended for closed-loop laps where wind largely cancels out.</span>
+        </label>
+        <label class="option-pill">
+          <input type="radio" name="windMode" value="weather">
+          <strong>Use weather estimate</strong>
+          <span>Uses Open-Meteo wind as a starting point.</span>
+        </label>
+      </div>
+    </div>
+  </div>
+
+  <!-- Environment (simplified) -->
+  <div class="card">
+    <h2><span class="icon">🌡️</span> Environment</h2>
+    <div class="field">
+      <label>Temperature (°C)</label>
+      <input type="number" id="tempC" value="20" step="0.5" oninput="syncRho()">
+    </div>
+    <div class="field" style="margin-bottom:14px">
+      <label>Air density ρ</label>
+      <div class="rho-badge"><span id="rhoBadgeVal">1.2050</span> kg/m³ <span class="rho-src" id="rhoBadgeSrc">manual</span></div>
+      <small>Set in Advanced Settings · auto-filled from weather</small>
+    </div>
+    <div class="helper-note" id="windModeSummary">Wind assumption: zero wind.</div>
+  </div>
+
+  <!-- Advanced trigger + Run -->
+  <div class="adv-trigger">
+    <button onclick="openAdv()">⚙️ Advanced Settings</button>
+    <small>Physics · Air density · CdA range</small>
+  </div>
+
+  <button class="btn btn-primary" id="runBtn" disabled style="width:100%;justify-content:center;font-size:16px;padding:14px">
+    ▶ Analyze CdA
+  </button>
+  <div class="report-actions">
+    <button class="btn btn-secondary" id="reportBtn" style="flex:1;justify-content:center" disabled>Generate Report</button>
+  </div>
+  <div id="clearAnalysisBar" style="display:none;margin-top:6px">
+    <button id="clearAnalysisBtn" style="width:100%;background:none;border:1px solid var(--border);border-radius:8px;padding:8px;font-size:12px;color:var(--sub);cursor:pointer;text-align:center" onclick="clearCurrentAnalysis()">✕ Clear current analysis</button>
+  </div>
+  <div class="status" id="status"></div>
+</div>
+
+<!-- ─── RIGHT PANEL ─────────────────────────────────────────────── -->
+<div id="resultsPanel">
+  <div class="card" id="summaryCard" style="display:none">
+    <h2><span class="icon">📊</span> Summary</h2>
+    <div class="results-grid" id="summaryGrid"></div>
+  </div>
+
+  <!-- Insight panel — filled by JS after analysis -->
+  <div class="card" id="insightCard" style="display:none"></div>
+  <div class="card benchmark-card" id="benchmarkCard" style="display:none">
+    <h2><span class="icon">🧪</span> Peer Comparison</h2>
+    <div class="benchmark-placeholder" id="benchmarkContent"></div>
+  </div>
+
+  <div class="card" id="lapCard" style="display:none">
+    <h2><span class="icon">🏁</span> Per-Lap Results</h2>
+    <p style="color:var(--sub);font-size:12px;margin:-8px 0 14px;line-height:1.5">Step 1: Exclude bad laps (warm-up, cool-down, bad data). Step 2: Create setups from the good laps.</p>
+    <div class="lap-actions">
+      <button class="btn btn-secondary" id="includeAllBtn" style="font-size:12px;padding:6px 12px">✓ Include All</button>
+      <button class="btn btn-secondary" id="excludePoorBtn" style="font-size:12px;padding:6px 12px">✗ Auto-exclude Poor</button>
+      <div class="spacer"></div>
+      <button class="btn-orange-small" id="newSetupBtn" style="padding:8px 18px">+ New Setup</button>
+    </div>
+    <div style="overflow-x:auto"><table id="lapTable"><thead><tr>
+      <th style="width:80px">Status</th>
+      <th>Lap</th><th>CdA (m²)</th><th title="Normalized RMSE = RMSE ÷ elevation range. Comparable across laps regardless of duration. Hover for raw RMSE.">Fit Error</th>
+      <th>Duration</th><th>Avg Speed</th><th>Avg Power</th><th>Avg HR</th><th>Quality</th><th>Setups</th>
+    </tr></thead><tbody id="lapBody"></tbody></table></div>
+  </div>
+
+  <div class="card" id="setupMgmtCard" style="display:none">
+    <h2><span class="icon">📋</span> Saved Setups</h2>
+    <p class="helper-note" style="margin:-4px 0 12px">Add extra laps directly from the current analysis and keep each setup grouped clearly.</p>
+    <div class="setup-list" id="setupList"></div>
+  </div>
+
+  <div class="card" id="comparisonChartCard" style="display:none">
+    <h2><span class="icon">📈</span> Setup Comparison</h2>
+    <div class="chart-container-large"><canvas id="comparisonChart"></canvas></div>
+  </div>
+
+  <div class="card" id="calculatorCard" style="display:none">
+    <h2><span class="icon">⚖️</span> Setup Speed Comparison</h2>
+    <div class="calc-grid">
+      <div class="field" style="margin-bottom:0">
+        <label>Power (W)</label>
+        <input type="number" id="calcPower" value="300" step="5" min="50" max="1500">
+      </div>
+      <div class="field" style="margin-bottom:0">
+        <label>Gradient (%)</label>
+        <input type="number" id="calcGradient" value="0" step="0.1" min="-20" max="20">
+      </div>
+      <div class="field" style="margin-bottom:0">
+        <label>Distance (km)</label>
+        <input type="number" id="calcDistance" value="10" step="0.5" min="0.5" max="300">
+      </div>
+      <div class="field" style="margin-bottom:0">
+        <label>Wind (m/s)</label>
+        <input type="number" id="calcWind" value="0" step="0.1" min="-20" max="20">
+      </div>
+    </div>
+    <div class="calc-results">
+      <table>
+        <thead><tr><th>Setup</th><th>CdA</th><th>Speed</th><th>Time</th><th>Vs Best</th></tr></thead>
+        <tbody id="calcBody"></tbody>
+      </table>
+    </div>
+    <div class="calc-note">This tool compares all setups side by side, which is usually the clearest way to see time gained or lost for one position versus another.</div>
+  </div>
+
+  <div class="card" id="cdaChartCard" style="display:none">
+    <h2><span class="icon">📈</span> CdA per Lap</h2>
+    <div class="chart-container"><canvas id="cdaChart"></canvas></div>
+  </div>
+
+  <div class="card" id="rmseChartCard" style="display:none">
+    <h2><span class="icon">📉</span> Raw RMSE vs CdA — Sensitivity <span style="font-size:11px;font-weight:400;color:var(--sub)">(raw RMSE in metres — use Fit Error % for cross-lap comparison)</span></h2>
+    <select id="rmseLapSelect" style="margin-bottom:8px;width:200px"></select>
+    <div class="chart-container"><canvas id="rmseChart"></canvas></div>
+  </div>
+
+  <div class="card" id="veChartCard" style="display:none">
+    <h2><span class="icon">⛰️</span> Virtual Elevation Overlay</h2>
+    <select id="veLapSelect" style="margin-bottom:8px;width:200px"></select>
+    <div class="chart-container"><canvas id="veChart"></canvas></div>
+  </div>
+
+  <!-- Ride Map — shown after FIT file is parsed -->
+  <div class="card" id="mapCard" style="display:none">
+    <h2><span class="icon">🗺️</span> Ride Overview</h2>
+    <div class="map-wrap"><div id="mapBackdrop" aria-hidden="true"></div><canvas id="mapCanvas"></canvas></div>
+    <div class="map-stats">
+      <div class="map-stat"><div class="sv" id="mapStatDist">—</div><div class="sl">Distance</div></div>
+      <div class="map-stat"><div class="sv" id="mapStatElev">—</div><div class="sl">Elevation +</div></div>
+      <div class="map-stat"><div class="sv" id="mapStatTime">—</div><div class="sl">Duration</div></div>
+      <div class="map-stat"><div class="sv" id="mapStatLaps">—</div><div class="sl">Laps</div></div>
+    </div>
+  </div>
+
+  <!-- Welcome card — hidden once analysis runs -->
+  <div class="card" id="welcomeCard">
+    <h2><span class="icon">👋</span> Welcome to AeroBestimation</h2>
+    <div class="welcome-steps">
+      <div class="welcome-step">
+        <div class="ws-icon">📂</div>
+        <div class="ws-title">1 · Upload FIT / GPX</div>
+        <div class="ws-desc">Drag &amp; drop your .fit or .gpx ride file from Garmin, Wahoo, or any GPS computer</div>
+      </div>
+      <div class="welcome-step">
+        <div class="ws-icon">⚖️</div>
+        <div class="ws-title">2 · Set Parameters</div>
+        <div class="ws-desc">Enter your mass and position. Weather fetches automatically from your GPS data</div>
+      </div>
+      <div class="welcome-step">
+        <div class="ws-icon">📊</div>
+        <div class="ws-title">3 · Analyze CdA</div>
+        <div class="ws-desc">The Virtual Elevation engine estimates your drag coefficient per lap</div>
+      </div>
+    </div>
+    <div class="welcome-privacy">🔒 Your analyses and setups sync securely to your account with row-level security — only you can see your data</div>
+    <div class="welcome-cta-card">
+      <div class="wc-text">
+        <h4>Want to see your CdA in 3D?</h4>
+        <p>AeroB 3D uses 3D scanning as a starting point for aerodynamic modelling, with room for future CFD-driven extensions.</p>
+      </div>
+      <a class="wc-btn" href="https://aerob.app" target="_blank" rel="noopener">Try AeroB 3D →</a>
+    </div>
+  </div>
+</div><!-- /right panel -->
+</div><!-- /grid -->
+</div><!-- /container -->
+
+<!-- ═══ SETUP CREATION MODAL ════════════════════════════════════ -->
+<div class="smodal-overlay" id="setupModal">
+  <div class="smodal">
+    <div class="smodal-hdr">
+      <h3 id="setupModalTitle">Create New Setup</h3>
+      <button class="adv-close" onclick="closeSetupModal()">✕</button>
+    </div>
+    <div class="smodal-body">
+      <div class="field">
+        <label>Setup name</label>
+        <input type="text" id="modalSetupName" placeholder="e.g. Drops — Helmet A">
+      </div>
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-top:6px">
+        <label style="margin:0">Select laps for this setup</label>
+        <div style="display:flex;gap:6px">
+          <button class="btn btn-secondary" style="padding:4px 10px;font-size:11px" onclick="modalSelectAll()">All</button>
+          <button class="btn btn-secondary" style="padding:4px 10px;font-size:11px" onclick="modalSelectNone()">None</button>
+        </div>
+      </div>
+      <div class="smodal-laps" id="modalLapList"></div>
+      <div class="smodal-preview" id="modalPreview">
+        <div class="pv">—</div>
+        <div class="ps">Select laps above</div>
+      </div>
+    </div>
+    <div class="smodal-ftr">
+      <div class="left">
+        <button class="btn btn-secondary" onclick="closeSetupModal()">Cancel</button>
+      </div>
+      <button class="btn-orange-small" id="setupModalSaveBtn" style="padding:10px 24px;font-size:14px" onclick="saveSetupFromModal()">Save Setup</button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ ANALYSIS HISTORY MODAL ════════════════════════════════════ -->
+<div class="history-overlay" id="historyOverlay">
+  <div class="history-modal">
+    <div class="history-hdr">
+      <div>
+        <h3>📋 My Analyses</h3>
+        <p>Click any analysis to restore it — summary, laps and CdA chart reload instantly</p>
+      </div>
+      <button class="adv-close" onclick="closeHistoryPanel()">✕</button>
+    </div>
+    <div class="history-body" id="historyBody">
+      <div class="history-loading"><span class="spin" style="display:inline-block;width:16px;height:16px;border:2px solid var(--border);border-top-color:var(--blue);border-radius:50%;animation:spin .7s linear infinite;vertical-align:middle;margin-right:8px"></span>Loading…</div>
+    </div>
+  </div>
+</div>
+
+<div class="footer">AeroBestimation Web v3 — Cloud sync · Row-level security · Powered by AeroB</div>
+
+<!-- ═══ UPGRADE MODAL ════════════════════════════════════════════ -->
+<div class="upgrade-overlay" id="upgradeOverlay">
+  <div class="upgrade-modal">
+    <div class="upgrade-modal-hdr">
+      <h3>⚡ Upgrade to Pro</h3>
+      <p>Unlimited analyses, full history, and all future features</p>
+    </div>
+    <div class="upgrade-modal-body">
+      <div class="upgrade-limit-bar" id="upgradeLimitMsg" style="display:none">
+        ⚠️ <span id="upgradeLimitText">You've used all 3 free analyses this month.</span>
+      </div>
+      <div class="upgrade-err" id="upgradeErr"></div>
+      <ul class="upgrade-features">
+        <li><span class="check">✓</span> <strong>Unlimited</strong> analyses per month</li>
+        <li><span class="check">✓</span> Full analysis history across sessions</li>
+        <li><span class="check">✓</span> All setups synced to the cloud</li>
+        <li><span class="check">✓</span> Priority support</li>
+        <li><span class="check">✓</span> All future Pro features included</li>
+        <li><span class="cross">✗</span> <span style="color:var(--sub)">Free plan: 3 analyses / month</span></li>
+      </ul>
+      <button class="upgrade-cta-btn" id="upgradeProceedBtn" onclick="doStartCheckout()">
+        Upgrade to Pro →
+      </button>
+      <span class="upgrade-cancel-link" onclick="closeUpgradeModal()">Maybe later</span>
+    </div>
+  </div>
+</div>
+
+<script>
+// ═══════════════════════════════════════════════════════════════════
+// FIT PARSER
+// ═══════════════════════════════════════════════════════════════════
+class FitParser {
+  constructor(){this.dataView=null;this.offset=0;this.fieldDefinitions={};this.localMessageTypes={};this.archTypes={};this.devFieldDefs={}}
+  parse(ab){
+    if(!ab||ab.byteLength<14)throw new Error('Invalid FIT file');
+    this.dataView=new DataView(ab);this.offset=0;this.fieldDefinitions={};this.localMessageTypes={};this.archTypes={};this.devFieldDefs={};
+    const hdr=this._parseHeader();
+    const dataEnd=hdr.dataSize+hdr.headerSize;
+    const recs=[],laps=[],devInfos=[];
+    while(this.offset<dataEnd-2){
+      try{
+        const rh=this._ru8();
+        if(rh&0x80){const lmt=(rh>>5)&0x03;const data=this._parseDataMsg(lmt);if(data){const gm=this.localMessageTypes[lmt];if(gm===20)recs.push(data);else if(gm===19)laps.push(data);else if(gm===0)devInfos.push(data)}continue}
+        const isDef=(rh&0x40)!==0;const hasDev=(rh&0x20)!==0;const lmt=rh&0x0f;
+        if(isDef)this._parseDefMsg(lmt,hasDev);
+        else{const data=this._parseDataMsg(lmt);if(data){const gm=this.localMessageTypes[lmt];if(gm===20)recs.push(data);else if(gm===19)laps.push(data);else if(gm===0)devInfos.push(data)}}
+      }catch(e){break}
+    }
+    return this._buildOutput(recs,laps,devInfos,hdr);
+  }
+  _parseHeader(){
+    const hs=this._ru8(),pv=this._ru8(),pfv=this._ru16LE(),ds=this._ru32LE(),sig=this._rs(4);
+    if(sig!=='.FIT')throw new Error('Not a FIT file');
+    if(hs>12)this.offset+=hs-12;else{this.offset+=2}
+    return{headerSize:hs,dataSize:ds,profileVersion:pfv}
+  }
+  _parseDefMsg(lmt,hasDev){
+    this._ru8(); // reserved
+    const arch=this._ru8(); // 0=LE, 1=BE
+    const le=arch===0;
+    const gmn=this.dataView.getUint16(this.offset,le);this.offset+=2;
+    const nf=this._ru8();
+    const fields=[];for(let i=0;i<nf;i++){fields.push({num:this._ru8(),size:this._ru8(),baseType:this._ru8()})}
+    // Developer fields (FIT SDK ≥ 2.0)
+    let devFields=[];
+    if(hasDev){
+      const ndf=this._ru8();
+      for(let i=0;i<ndf;i++){devFields.push({num:this._ru8(),size:this._ru8(),devIdx:this._ru8()})}
+    }
+    this.localMessageTypes[lmt]=gmn;
+    this.fieldDefinitions[lmt]=fields;
+    this.archTypes[lmt]=le;
+    this.devFieldDefs[lmt]=devFields;
+  }
+  _parseDataMsg(lmt){
+    const fields=this.fieldDefinitions[lmt];if(!fields)return null;
+    const le=this.archTypes[lmt]!==undefined?this.archTypes[lmt]:true;
+    const d={};for(const f of fields){d[f.num]=this._readVal(f.size,f.baseType,le)}
+    // Skip developer field data
+    const devFs=this.devFieldDefs[lmt];
+    if(devFs&&devFs.length>0){for(const df of devFs){this.offset+=df.size}}
+    return d;
+  }
+  _readVal(sz,bt,le){
+    const o=this.offset;
+    if(sz===1){this.offset+=1;const v=this.dataView.getUint8(o);return v===0xFF?null:v}
+    if(sz===2&&(bt===0x84||bt===132)){this.offset+=2;const v=this.dataView.getUint16(o,le);return v===0xFFFF?null:v}
+    if(sz===2&&(bt===0x83||bt===131)){this.offset+=2;const v=this.dataView.getInt16(o,le);return v===0x7FFF?null:v}
+    if(sz===4&&(bt===0x86||bt===134)){this.offset+=4;const v=this.dataView.getUint32(o,le);return v===0xFFFFFFFF?null:v}
+    if(sz===4&&(bt===0x85||bt===133)){this.offset+=4;const v=this.dataView.getInt32(o,le);return v===0x7FFFFFFF?null:v}
+    if(bt===10||bt===7){let s='';for(let i=0;i<sz;i++){const c=this.dataView.getUint8(o+i);if(c===0)break;s+=String.fromCharCode(c)}this.offset+=sz;return s}
+    if(sz===4&&bt===136){this.offset+=4;return this.dataView.getFloat32(o,le)}
+    if(sz===8&&bt===137){this.offset+=8;return this.dataView.getFloat64(o,le)}
+    if(sz===1){this.offset+=1;return this.dataView.getUint8(o)}
+    if(sz===2){this.offset+=2;return this.dataView.getUint16(o,le)}
+    if(sz===4){this.offset+=4;return this.dataView.getUint32(o,le)}
+    this.offset+=sz;return null;
+  }
+  _ru8(){const v=this.dataView.getUint8(this.offset);this.offset+=1;return v}
+  _ru16LE(){const v=this.dataView.getUint16(this.offset,true);this.offset+=2;return v}
+  _ru32LE(){const v=this.dataView.getUint32(this.offset,true);this.offset+=4;return v}
+  _rs(n){let s='';for(let i=0;i<n;i++)s+=String.fromCharCode(this.dataView.getUint8(this.offset+i));this.offset+=n;return s}
+  _buildOutput(recs,rawLaps,devInfos,hdr){
+    const validRecs=recs.filter(r=>r[253]!=null);
+    if(validRecs.length===0)throw new Error('No valid records found');
+    const startTs=validRecs[0][253];
+    const records=validRecs.map(r=>{
+      const ts=r[253]||0;
+      const lat=r[0]!=null?r[0]*(180/Math.pow(2,31)):null;
+      const lon=r[1]!=null?r[1]*(180/Math.pow(2,31)):null;
+      const alt=r[2]!=null?r[2]/5-500:null;
+      const hr=r[3]!=null?r[3]:null;
+      const dist=r[5]!=null?r[5]/100:null;
+      const spd=r[6]!=null?r[6]/1000:null;
+      const pwr=r[7]!=null?r[7]:null;
+      const tmp=r[13]!=null?r[13]:null;
+      return{time_s:ts-startTs,dist_m:dist,speed_mps:spd,alt_m:alt,power_w:pwr,heart_rate_bpm:hr,temp_c:tmp,lat,lon,_ts:ts};
+    });
+    for(let i=0;i<records.length;i++){
+      const r=records[i];
+      if(r.speed_mps==null&&r.dist_m!=null&&i>0&&records[i-1].dist_m!=null){const dt=r.time_s-records[i-1].time_s;if(dt>0)r.speed_mps=(r.dist_m-records[i-1].dist_m)/dt}
+      if(r.dist_m==null&&r.speed_mps!=null){if(i===0)r.dist_m=0;else{const dt=r.time_s-records[i-1].time_s;r.dist_m=(records[i-1].dist_m||0)+r.speed_mps*dt}}
+      if(r.speed_mps==null)r.speed_mps=0;
+      if(r.dist_m==null)r.dist_m=i===0?0:(records[i-1].dist_m||0);
+      if(r.alt_m==null)r.alt_m=i===0?0:(records[i-1].alt_m||0);
+      if(r.power_w==null)r.power_w=0;
+    }
+    for(let i=1;i<records.length;i++){
+      const p=records[i-1],c=records[i];
+      if(p.lat!=null&&p.lon!=null&&c.lat!=null&&c.lon!=null){
+        const dLon=(c.lon-p.lon)*Math.PI/180,lat1=p.lat*Math.PI/180,lat2=c.lat*Math.PI/180;
+        const y=Math.sin(dLon)*Math.cos(lat2),x=Math.cos(lat1)*Math.sin(lat2)-Math.sin(lat1)*Math.cos(lat2)*Math.cos(dLon);
+        c.heading_deg=(Math.atan2(y,x)*180/Math.PI+360)%360;
+      }else c.heading_deg=i>1?records[i-1].heading_deg:0;
+    }
+    if(records.length>0)records[0].heading_deg=records.length>1?records[1].heading_deg:0;
+    const lapBounds=[];
+    const rideEnd=records[records.length-1].time_s;
+    if(rawLaps.length>0){
+      // Pass 1: extract raw start/end from each lap message.
+      // field 253=timestamp(lap end), field 2=start_time, field 7=total_elapsed_time(ms), field 8=total_timer_time(ms)
+      const raw=rawLaps.map(l=>{
+        // Only treat start_time as valid if it looks like a real FIT epoch timestamp (>0)
+        let ls=l[2]!=null&&l[2]>0?l[2]-startTs:null;
+        let le=l[253]!=null?l[253]-startTs:null;
+        // Fallback: derive end from start + elapsed time when timestamp is missing or inverted
+        if((le==null||le<=ls)&&ls!=null&&l[7]!=null&&l[7]>0)le=ls+l[7]/1000;
+        if((le==null||le<=ls)&&ls!=null&&l[8]!=null&&l[8]>0)le=ls+l[8]/1000;
+        return{ls,le};
+      });
+      // Pass 2: repair missing starts using previous lap's end (or 0 for first lap)
+      for(let i=0;i<raw.length;i++){
+        if(raw[i].ls==null)raw[i].ls=i===0?0:(raw[i-1].le??0);
+      }
+      // Pass 3: repair invalid ends using next lap's start, or ride end for the final lap
+      for(let i=0;i<raw.length;i++){
+        if(raw[i].le==null||raw[i].le<=raw[i].ls){
+          raw[i].le=i+1<raw.length&&raw[i+1].ls!=null?raw[i+1].ls:rideEnd;
+        }
+      }
+      // Pass 4: validate, clamp to ride bounds, and push surviving laps
+      for(const{ls,le}of raw){
+        if(ls==null||le==null||le<=ls)continue;   // still invalid after repair
+        if(le<0||ls>rideEnd+60)continue;           // entirely outside ride
+        lapBounds.push({start_s:Math.max(0,ls),end_s:Math.min(le,rideEnd)});
+      }
+    }
+    if(lapBounds.length===0)lapBounds.push({start_s:0,end_s:rideEnd});
+    for(const r of records){
+      r.lap_id=0;
+      for(let li=0;li<lapBounds.length;li++){if(r.time_s>=lapBounds[li].start_s&&r.time_s<=lapBounds[li].end_s){r.lap_id=li+1;break}}
+    }
+    const lats=records.filter(r=>r.lat!=null).map(r=>r.lat).sort((a,b)=>a-b);
+    const lons=records.filter(r=>r.lon!=null).map(r=>r.lon).sort((a,b)=>a-b);
+    const alts=records.filter(r=>r.alt_m!=null&&r.alt_m>-400).map(r=>r.alt_m).sort((a,b)=>a-b);
+    const meta={
+      start_time_epoch:startTs,n_records:records.length,n_laps:lapBounds.length,
+      median_lat:lats.length?lats[Math.floor(lats.length/2)]:null,
+      median_lon:lons.length?lons[Math.floor(lons.length/2)]:null,
+      median_alt:alts.length?alts[Math.floor(alts.length/2)]:0
+    };
+    return{records,laps:lapBounds,meta};
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// GPX PARSER
+// Parses GPX 1.1 track files into the same record shape as FitParser.
+// Power is read from common Garmin/Wahoo extensions if present.
+// Lap markers: GPX has none — the whole file becomes lap 1.
+// If the file has no power data, meta.hasPower === false and the
+// caller should surface a clear message before attempting CdA analysis.
+// ═══════════════════════════════════════════════════════════════════
+class GpxParser {
+  parse(text) {
+    const doc = new DOMParser().parseFromString(text, 'text/xml');
+    const parseErr = doc.querySelector('parsererror');
+    if (parseErr) throw new Error('Invalid GPX: ' + parseErr.textContent.slice(0,100));
+
+    // Collect all <trkpt> elements across all tracks / segments
+    const trkpts = Array.from(doc.querySelectorAll('trkpt'));
+    if (trkpts.length < 5) throw new Error('GPX has too few track points (minimum 5 required)');
+
+    // Helper: find first matching element by any of several local names
+    // getElementsByTagName is namespace-prefix-agnostic in most browsers
+    function findFirst(parent, localNames) {
+      for (const name of localNames) {
+        const el = parent.getElementsByTagName(name)[0];
+        if (el) return el;
+      }
+      return null;
+    }
+
+    // Parse each track point
+    const rawPoints = trkpts.map(pt => {
+      const lat = parseFloat(pt.getAttribute('lat'));
+      const lon = parseFloat(pt.getAttribute('lon'));
+      if (!isFinite(lat) || !isFinite(lon)) return null;
+
+      const eleEl  = findFirst(pt, ['ele']);
+      const timeEl = findFirst(pt, ['time']);
+      // Power: Wahoo / Garmin extensions use <power> or <ns3:power>
+      const pwrEl  = findFirst(pt, ['power', 'Power']);
+      // HR: gpxtpx:hr, ns3:hr, or Garmin hr
+      const hrEl   = findFirst(pt, ['hr', 'HeartRateBpm', 'hrBpm']);
+      return {
+        lat,
+        lon,
+        alt_m:          eleEl  ? parseFloat(eleEl.textContent)  : null,
+        _isoTime:       timeEl ? timeEl.textContent.trim()       : null,
+        power_w:        pwrEl  ? parseFloat(pwrEl.textContent)   : null,
+        heart_rate_bpm: hrEl   ? parseFloat(hrEl.textContent)    : null,
+      };
+    }).filter(Boolean);
+
+    if (rawPoints.length < 5) throw new Error('Not enough valid GPS coordinates in GPX file');
+
+    // Parse timestamps → relative seconds from start
+    const isoTimes = rawPoints.map(r => r._isoTime ? new Date(r._isoTime).getTime() / 1000 : null);
+    const validTs  = isoTimes.filter(t => t !== null && isFinite(t));
+    const hasTime  = validTs.length === rawPoints.length;
+    const startEpoch = hasTime ? validTs[0] : null;
+
+    // Haversine great-circle distance (metres)
+    function haversine(lat1, lon1, lat2, lon2) {
+      const R  = 6371000;
+      const dL = (lat2 - lat1) * Math.PI / 180;
+      const dO = (lon2 - lon1) * Math.PI / 180;
+      const a  = Math.sin(dL/2)**2 + Math.cos(lat1*Math.PI/180) * Math.cos(lat2*Math.PI/180) * Math.sin(dO/2)**2;
+      return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+    }
+
+    const records = [];
+    let cumDist = 0;
+    for (let i = 0; i < rawPoints.length; i++) {
+      const r   = rawPoints[i];
+      const t_s = hasTime ? isoTimes[i] - startEpoch : i; // fall back to index if no time
+
+      let distSeg = 0;
+      if (i > 0) distSeg = haversine(rawPoints[i-1].lat, rawPoints[i-1].lon, r.lat, r.lon);
+      cumDist += distSeg;
+
+      const dt = (i > 0 && hasTime) ? Math.max(isoTimes[i] - isoTimes[i-1], 0.001) : 1;
+      const speed_mps = distSeg / dt;
+
+      // Heading (bearing) from previous point
+      let heading_deg = i > 0 ? records[i-1].heading_deg : 0;
+      if (i > 0) {
+        const dLon = (r.lon - rawPoints[i-1].lon) * Math.PI / 180;
+        const la1  = rawPoints[i-1].lat * Math.PI / 180;
+        const la2  = r.lat * Math.PI / 180;
+        const y    = Math.sin(dLon) * Math.cos(la2);
+        const x    = Math.cos(la1) * Math.sin(la2) - Math.sin(la1) * Math.cos(la2) * Math.cos(dLon);
+        heading_deg = (Math.atan2(y, x) * 180 / Math.PI + 360) % 360;
+      }
+
+      records.push({
+        time_s:          t_s,
+        dist_m:          cumDist,
+        speed_mps:       Math.max(0, speed_mps),
+        alt_m:           r.alt_m   ?? 0,
+        power_w:         isFinite(r.power_w) ? r.power_w : 0,
+        heart_rate_bpm:  isFinite(r.heart_rate_bpm) ? r.heart_rate_bpm : null,
+        lat:             r.lat,
+        lon:             r.lon,
+        heading_deg,
+        lap_id:          1,   // GPX has no lap markers → single lap
+      });
+    }
+
+    const hasPower = records.some(r => r.power_w > 0);
+
+    // Metadata shape identical to FitParser output
+    const lats = records.map(r => r.lat).sort((a,b)=>a-b);
+    const lons = records.map(r => r.lon).sort((a,b)=>a-b);
+    const alts = records.map(r => r.alt_m).filter(a => a > -400).sort((a,b)=>a-b);
+    const meta = {
+      start_time_epoch: startEpoch,
+      n_records:        records.length,
+      n_laps:           1,
+      median_lat:       lats[Math.floor(lats.length / 2)],
+      median_lon:       lons[Math.floor(lons.length / 2)],
+      median_alt:       alts.length ? alts[Math.floor(alts.length / 2)] : 0,
+      hasPower,        // false → CdA analysis unavailable; still show map/weather
+      source:          'gpx',
+    };
+
+    return {
+      records,
+      laps: [{ start_s: 0, end_s: records[records.length-1].time_s }],
+      meta,
+    };
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// AERO ENGINE
+// ═══════════════════════════════════════════════════════════════════
+const AeroEngine=(()=>{
+  const G=9.80665,RD=287.05,RV=461.495;
+  const median=arr=>{if(!arr.length)return 0;const s=[...arr].sort((a,b)=>a-b);const m=Math.floor(s.length/2);return s.length%2?s[m]:(s[m-1]+s[m])/2};
+  function smoothSeries(x,windowS,dt){
+    if(windowS<=0||!x.length)return x;
+    const win=Math.max(1,Math.round(windowS/Math.max(dt,1e-6)));
+    if(win<=1)return x;
+    const n=x.length,pad=Math.floor(win/2),res=new Float64Array(n);
+    for(let i=0;i<n;i++){let sum=0,cnt=0;const lo=Math.max(0,i-pad),hi=Math.min(n-1,i+pad);for(let j=lo;j<=hi;j++){if(isFinite(x[j])){sum+=x[j];cnt++}}res[i]=cnt>0?sum/cnt:NaN}
+    return res;
+  }
+  function buildDt(timeS){
+    const n=timeS.length,dt=new Float64Array(n);
+    dt[0]=n>1?timeS[1]-timeS[0]:1;
+    for(let i=1;i<n;i++)dt[i]=timeS[i]-timeS[i-1];
+    const pos=[];for(let i=0;i<n;i++)if(dt[i]>0)pos.push(dt[i]);
+    const med=pos.length?median(pos):1;
+    for(let i=0;i<n;i++)if(dt[i]<=0)dt[i]=med;
+    return{dt,dtMed:med};
+  }
+  function vePrecompute({massTotal,rho,crr,drivetrainLossFrac,timeS,speedMps,powerW,windMps=0}){
+    const m=massTotal,n=timeS.length;
+    const{dt,dtMed}=buildDt(timeS);
+    const baseIncr=new Float64Array(n),aeroCoeff=new Float64Array(n);
+    let prevV=speedMps[0];
+    for(let i=0;i<n;i++){
+      const v=speedMps[i],P=powerW[i];
+      const vRel=Math.max(0,v-(typeof windMps==='number'?windMps:windMps[i]));
+      const pDrive=Math.max(0,P*(1-drivetrainLossFrac));
+      const pRr=m*G*crr*v;const dv=i===0?0:v-prevV;const dvDt=dv/dt[i];const pKin=m*v*dvDt;
+      baseIncr[i]=((pDrive-pRr-pKin)/(m*G))*dt[i];
+      aeroCoeff[i]=(0.5*rho*Math.pow(vRel,3))/(m*G)*dt[i];
+      prevV=v;
+    }
+    return{baseIncr,aeroCoeff,dtMed,dt};
+  }
+  function veFastCdaSweep(precomp,cdaVals,altS,mask0,smoothWinS){
+    const{baseIncr,aeroCoeff,dtMed}=precomp,n=baseIncr.length;
+    const rmses=[];
+    for(const cda of cdaVals){
+      const incr=new Float64Array(n);
+      for(let i=0;i<n;i++)incr[i]=baseIncr[i]-aeroCoeff[i]*cda;
+      for(let i=1;i<n;i++)incr[i]+=incr[i-1];
+      const ve0=incr[0];for(let i=0;i<n;i++)incr[i]-=ve0;
+      const veS=smoothSeries(incr,smoothWinS,dtMed);
+      const diffs=[];for(let i=0;i<n;i++)if(mask0[i]&&isFinite(altS[i])&&isFinite(veS[i]))diffs.push(altS[i]-veS[i]);
+      const offset=diffs.length?median(diffs):0;
+      let sse=0,cnt=0;
+      for(let i=0;i<n;i++){if(isFinite(veS[i])&&isFinite(altS[i])){const e=veS[i]+offset-altS[i];sse+=e*e;cnt++}}
+      rmses.push(cnt>0?Math.sqrt(sse/cnt):Infinity);
+    }
+    return rmses;
+  }
+  function powerBalanceVE({massTotal,rho,cda,crr,drivetrainLossFrac,timeS,speedMps,powerW,windMps=0}){
+    const precomp=vePrecompute({massTotal,rho,crr,drivetrainLossFrac,timeS,speedMps,powerW,windMps});
+    const n=precomp.baseIncr.length,ve=new Float64Array(n);
+    for(let i=0;i<n;i++)ve[i]=precomp.baseIncr[i]-precomp.aeroCoeff[i]*cda;
+    for(let i=1;i<n;i++)ve[i]+=ve[i-1];
+    const v0=ve[0];for(let i=0;i<n;i++)ve[i]-=v0;
+    return ve;
+  }
+  function prefilterLap(data,opts={}){
+    const maxPwr=opts.maxPowerW||2500,minSpd=opts.minSpeedMps||2.0,maxAcc=opts.maxAccelMps2||5.0,maxDtF=opts.maxDtFactor||3.0;
+    const n=data.length;if(n===0)return{data:[],diagnostics:{originalCount:0,keptCount:0,pctKept:0}};
+    const dts=[];for(let i=1;i<n;i++){const d=data[i].time_s-data[i-1].time_s;if(d>0)dts.push(d)}
+    const medDt=dts.length?median(dts):1,maxDt=medDt*maxDtF;
+    const kept=[];
+    for(let i=0;i<n;i++){
+      const d=data[i];let ok=true;
+      if(d.power_w>maxPwr||d.power_w<0)ok=false;
+      if(d.speed_mps<minSpd)ok=false;
+      if(i>0){const dt=d.time_s-data[i-1].time_s;if(dt>maxDt||dt<=0)ok=false;if(dt>0&&Math.abs(d.speed_mps-data[i-1].speed_mps)/dt>maxAcc)ok=false}
+      if(ok)kept.push(d);
+    }
+    return{data:kept,diagnostics:{originalCount:n,keptCount:kept.length,pctKept:n>0?100*kept.length/n:0}};
+  }
+  // CHANGED (NRMSE): first param is now dimensionless NRMSE instead of raw RMSE (metres).
+  // NRMSE = rmse / max(altRange, 2.0).
+  // Thresholds updated accordingly: 0→100 maps to NRMSE 0→0.5 (50% relative error = score 0).
+  // This makes quality scores comparable across laps with different durations and terrains.
+  function computeQualityScore(nrmse,veFlatness,nSamples,pctKept,avgSpeedKmh){
+    const sR=Math.max(0,100*(1-nrmse/0.5));   // 0% error → 100pts; 50% error → 0pts
+    const sF=Math.max(0,100*(1-veFlatness/0.5));
+    const sK=Math.min(100,pctKept);
+    const sN=Math.min(100,Math.max(0,(nSamples-30)/1.7)),sS=Math.min(100,Math.max(0,(avgSpeedKmh-10)/0.15));
+    const score=Math.min(100,Math.max(0,0.35*sR+0.25*sF+0.20*sK+0.10*sN+0.10*sS));
+    let label='Unreliable';if(score>=80)label='Excellent';else if(score>=60)label='Good';else if(score>=40)label='Fair';else if(score>=20)label='Poor';
+    return{score:Math.round(score*10)/10,label};
+  }
+  function goldenSection(f,a,b,tol=1e-4,maxit=60){
+    const gr=(Math.sqrt(5)-1)/2;
+    let c=b-gr*(b-a),d=a+gr*(b-a),fc=f(c),fd=f(d);
+    for(let i=0;i<maxit;i++){if(Math.abs(b-a)<=tol)break;if(fc<fd){b=d;d=c;fd=fc;c=b-gr*(b-a);fc=f(c)}else{a=c;c=d;fc=fd;d=a+gr*(b-a);fd=f(d)}}
+    const x=(a+b)/2;return{x,fx:f(x)};
+  }
+  function buildLapRmseContext(lapData,params,rho,windMps,opts={}){
+    const smoothS=opts.smoothWinS||5,alignS=opts.alignStartS||5;
+    const[cdaLo,cdaHi]=opts.cdaBounds||[0.18,0.35];
+    const timeS=lapData.map(d=>d.time_s),speedMps=lapData.map(d=>d.speed_mps),powerW=lapData.map(d=>d.power_w),altM=lapData.map(d=>d.alt_m);
+    const hasVectorWind=lapData.some(d=>Number.isFinite(d._tw));
+    const effectiveWind=hasVectorWind?lapData.map(d=>Number.isFinite(d._tw)?d._tw:windMps):windMps;
+    const precomp=vePrecompute({massTotal:params.massTotal,rho,crr:params.crr,drivetrainLossFrac:params.drivetrainLossFrac,timeS,speedMps,powerW,windMps:effectiveWind});
+    const altS=smoothSeries(new Float64Array(altM),smoothS,precomp.dtMed);
+    const t0=timeS[0],pct10=(timeS[timeS.length-1]-t0)*0.1,alignWindowS=Math.max(alignS,pct10);
+    const mask0=timeS.map(t=>(t-t0)<=alignWindowS);
+    if(!mask0.some(Boolean)){for(let i=0;i<Math.min(5,mask0.length);i++)mask0[i]=true}
+    const rmseAt=cda=>veFastCdaSweep(precomp,[cda],altS,mask0,smoothS)[0];
+    return{cdaLo,cdaHi,rmseAt};
+  }
+  function fitCdaForLap(lapData,params,rho,windMps,opts={}){
+    const step=opts.coarseStep||0.005;
+    const ctx=buildLapRmseContext(lapData,params,rho,windMps,opts);
+    const{cdaLo,cdaHi}=ctx;
+    const grid=[];for(let c=cdaLo;c<=cdaHi+1e-12;c+=step)grid.push(c);
+    const rmses=grid.map(c=>ctx.rmseAt(c));
+    let bestIdx=0;for(let i=1;i<rmses.length;i++)if(rmses[i]<rmses[bestIdx])bestIdx=i;
+    const lo=Math.max(cdaLo,grid[Math.max(0,bestIdx-1)]-step);
+    const hi=Math.min(cdaHi,grid[Math.min(grid.length-1,bestIdx+1)]+step);
+    const{x:bestCda,fx:bestRmse}=goldenSection(ctx.rmseAt,lo,hi,1e-4,60);
+    // NRMSE: normalize raw RMSE by the peak-to-peak elevation range of this lap.
+    // Clamped to a 2 m floor so flat-terrain analyses remain well-defined.
+    // NRMSE is dimensionless and comparable across laps with different lengths/terrains.
+    const altVals=lapData.map(d=>d.alt_m).filter(Number.isFinite);
+    const altRange=altVals.length?Math.max(...altVals)-Math.min(...altVals):0;
+    const nrmse=bestRmse/Math.max(altRange,2.0);
+    return{cda:bestCda,rmse:bestRmse,nrmse};
+  }
+  function fitCdaPerLap(allData,params,rho,windMps,opts={}){
+    const lapGroups={};
+    for(const r of allData){const lid=r.lap_id||0;if(!lapGroups[lid])lapGroups[lid]=[];lapGroups[lid].push(r)}
+    const results=[];
+    for(const lid of Object.keys(lapGroups).map(Number).sort((a,b)=>a-b)){
+      if(lid<1)continue;
+      const lapData=lapGroups[lid];
+      const dur=lapData[lapData.length-1].time_s-lapData[0].time_s;
+      const powerVals=lapData.map(d=>d.power_w).filter(Number.isFinite);
+      const hrVals=lapData.map(d=>d.heart_rate_bpm).filter(Number.isFinite);
+      const lapAvgPower=powerVals.length?powerVals.reduce((s,v)=>s+v,0)/powerVals.length:NaN;
+      const lapAvgHr=hrVals.length?hrVals.reduce((s,v)=>s+v,0)/hrVals.length:NaN;
+      if(dur<20){results.push({lapId:lid,cda:NaN,crr:params.crr,rmse:NaN,durationS:dur,avgSpeedKmh:0,avgPowerW:lapAvgPower,avgHeartRateBpm:lapAvgHr,nSamples:lapData.length,pctKept:0,quality:{score:0,label:'Unreliable'}});continue}
+      const{data:filtered,diagnostics}=prefilterLap(lapData,opts);
+      if(filtered.length<30){results.push({lapId:lid,cda:NaN,crr:params.crr,rmse:NaN,durationS:dur,avgSpeedKmh:0,avgPowerW:lapAvgPower,avgHeartRateBpm:lapAvgHr,nSamples:filtered.length,pctKept:diagnostics.pctKept,quality:{score:0,label:'Unreliable'}});continue}
+      const fit=fitCdaForLap(filtered,params,rho,windMps,opts);
+      const avgSpd=filtered.reduce((s,d)=>s+d.speed_mps,0)/filtered.length*3.6;
+      // Use NRMSE (dimensionless) for quality scoring — see computeQualityScore comment
+      const q=computeQualityScore(fit.nrmse,fit.nrmse,filtered.length,diagnostics.pctKept,avgSpd);
+      results.push({lapId:lid,cda:fit.cda,crr:params.crr,rmse:fit.rmse,nrmse:fit.nrmse,durationS:dur,avgSpeedKmh:avgSpd,avgPowerW:lapAvgPower,avgHeartRateBpm:lapAvgHr,nSamples:filtered.length,pctKept:diagnostics.pctKept,quality:q});
+    }
+    return results;
+  }
+  function rmseVsCda(data,params,rho,windMps,opts={}){
+    const ctx=buildLapRmseContext(data,params,rho,windMps,opts);
+    const step=opts.curveStep||0.002;
+    const vals=[];for(let c=ctx.cdaLo;c<=ctx.cdaHi+1e-12;c+=step)vals.push(Math.round(c*1e6)/1e6);
+    if(Number.isFinite(opts.includeCda))vals.push(Math.round(opts.includeCda*1e6)/1e6);
+    vals.sort((a,b)=>a-b);
+    const uniq=vals.filter((v,i)=>i===0||Math.abs(v-vals[i-1])>1e-6);
+    const rmses=uniq.map(c=>ctx.rmseAt(c));
+    let bestIdx=0;for(let i=1;i<rmses.length;i++)if(rmses[i]<rmses[bestIdx])bestIdx=i;
+    return{cdaValues:uniq,rmseValues:rmses,bestCda:uniq[bestIdx],bestRmse:rmses[bestIdx]};
+  }
+  function computeRho(tempC,pressHpa,rhPct){
+    const T=tempC+273.15,es=6.112*Math.exp(17.62*tempC/(243.12+tempC))*100;
+    const e=(rhPct/100)*es,pD=pressHpa*100-e;
+    return pD/(RD*T)+e/(RV*T);
+  }
+  return{smoothSeries,vePrecompute,veFastCdaSweep,powerBalanceVE,prefilterLap,computeQualityScore,goldenSection,buildLapRmseContext,fitCdaForLap,fitCdaPerLap,rmseVsCda,computeRho};
+})();
+
+// Auth and AnalysisStore are provided by supabase.js
+
+// ═══════════════════════════════════════════════════════════════════
+// WEATHER MODULE
+// ═══════════════════════════════════════════════════════════════════
+const WxModule=(()=>{
+  function isoToEpoch(ts){
+    if(ts.endsWith('Z'))ts=ts.slice(0,-1)+'+00:00';
+    else if(ts.length===16)ts+='+00:00';
+    return Math.floor(new Date(ts).getTime()/1000);
+  }
+  function degToCard(deg){
+    const dirs=['N','NNE','NE','ENE','E','ESE','SE','SSE','S','SSW','SW','WSW','W','WNW','NW','NNW'];
+    return dirs[Math.round(((deg%360)+360)%360/22.5)%16];
+  }
+  function avg(arr){const v=arr.filter(x=>x!=null&&isFinite(x));return v.length?v.reduce((s,x)=>s+x,0)/v.length:null}
+  function circMean(degs){
+    const sx=degs.filter(d=>d!=null).reduce((s,d)=>s+Math.cos(d*Math.PI/180),0);
+    const sy=degs.filter(d=>d!=null).reduce((s,d)=>s+Math.sin(d*Math.PI/180),0);
+    return((Math.atan2(sy,sx)*180/Math.PI)+360)%360;
+  }
+  function processHourly(hourly,source,startEpoch,endEpoch,altM){
+    const times=hourly.time.map(isoToEpoch);
+    const temps=hourly.temperature_2m||[];
+    const rhs=hourly.relative_humidity_2m||[];
+    const winds=hourly.wind_speed_10m||[];
+    const wdirs=hourly.wind_direction_10m||[];
+    let pressures;
+    if(source==='forecast'){
+      pressures=hourly.surface_pressure||[];
+    }else{
+      const pmsl=hourly.pressure_msl||[];
+      pressures=pmsl.map((p,i)=>{
+        if(p==null||temps[i]==null)return null;
+        return p*Math.exp(-9.80665*(altM||0)/(287.05*(temps[i]+273.15)));
+      });
+    }
+    const win=[];
+    for(let i=0;i<times.length;i++){
+      if(times[i]>=startEpoch-7200&&times[i]<=endEpoch+7200){
+        win.push({temp:temps[i],rh:rhs[i],ws:winds[i],wd:wdirs[i],p:pressures[i]});
+      }
+    }
+    if(!win.length)throw new Error('No weather data in ride time window');
+    const meanTemp=avg(win.map(x=>x.temp));
+    const meanRh=avg(win.map(x=>x.rh));
+    const meanP=avg(win.map(x=>x.p));
+    const meanWs=avg(win.map(x=>x.ws));
+    const wdValid=win.map(x=>x.wd).filter(d=>d!=null);
+    const meanWd=wdValid.length?circMean(wdValid):null;
+    let rho=null;
+    if(meanTemp!=null&&meanP!=null&&meanRh!=null){
+      rho=AeroEngine.computeRho(meanTemp,meanP,meanRh);
+    }
+    return{source,meanTemp,meanRh,meanP,meanWs,meanWd,rho,n:win.length};
+  }
+  async function fetchForecast(lat,lon,startEpoch,endEpoch){
+    const daysAgo=Math.floor((Date.now()/1000-startEpoch)/86400);
+    if(daysAgo>92)throw new Error('Ride too old for forecast API (>92 days)');
+    const pastDays=Math.min(daysAgo+2,92);
+    const url=`https://api.open-meteo.com/v1/forecast?latitude=${lat.toFixed(5)}&longitude=${lon.toFixed(5)}&hourly=temperature_2m,surface_pressure,wind_speed_10m,wind_direction_10m,relative_humidity_2m&wind_speed_unit=ms&timezone=UTC&past_days=${pastDays}&forecast_days=1`;
+    const r=await fetch(url);
+    if(!r.ok)throw new Error(`Forecast API: HTTP ${r.status}`);
+    const data=await r.json();
+    if(!data.hourly||!data.hourly.time)throw new Error('Forecast API: no data');
+    return processHourly(data.hourly,'forecast',startEpoch,endEpoch,null);
+  }
+  async function fetchArchive(lat,lon,startEpoch,endEpoch,altM){
+    const ride=new Date(startEpoch*1000);
+    const end=new Date(endEpoch*1000);
+    const s=new Date(ride.getTime()-86400000).toISOString().slice(0,10);
+    const e=new Date(end.getTime()+86400000).toISOString().slice(0,10);
+    const url=`https://archive-api.open-meteo.com/v1/archive?latitude=${lat.toFixed(5)}&longitude=${lon.toFixed(5)}&start_date=${s}&end_date=${e}&hourly=temperature_2m,pressure_msl,wind_speed_10m,wind_direction_10m,relative_humidity_2m&wind_speed_unit=ms&timezone=UTC`;
+    const r=await fetch(url);
+    if(!r.ok)throw new Error(`Archive API: HTTP ${r.status}`);
+    const data=await r.json();
+    if(!data.hourly||!data.hourly.time)throw new Error('Archive API: no data');
+    return processHourly(data.hourly,'archive',startEpoch,endEpoch,altM);
+  }
+  async function getWeather(lat,lon,startEpoch,endEpoch,altM){
+    try{return await fetchForecast(lat,lon,startEpoch,endEpoch)}
+    catch(e1){
+      try{return await fetchArchive(lat,lon,startEpoch,endEpoch,altM)}
+      catch(e2){throw new Error(`${e1.message} | ${e2.message}`)}
+    }
+  }
+  return{getWeather,degToCard};
+})();
+
+// ═══════════════════════════════════════════════════════════════════
+// WIND ENGINE — physically-correct vector wind projection model
+// ═══════════════════════════════════════════════════════════════════
+const WindEngine=(()=>{
+  // Returns effective tailwind component (m/s): positive=tailwind, negative=headwind
+  function effectiveTailwind(windSpeedMs,windFromDeg,riderHeadingDeg){
+    const windToDeg=(windFromDeg+180)%360;
+    return windSpeedMs*Math.cos((riderHeadingDeg-windToDeg)*Math.PI/180);
+  }
+  // Build per-sample tailwind array from records (each needs heading_deg)
+  function buildPerSampleArray(records,windSpeedMs,windFromDeg){
+    return records.map(r=>effectiveTailwind(windSpeedMs,windFromDeg,r.heading_deg??0));
+  }
+  // Summary stats over a per-sample tailwind array
+  function analyzeTailwindArray(arr){
+    const vals=arr.filter(Number.isFinite);
+    if(!vals.length)return{mean:0,std:0,minV:0,maxV:0};
+    const mean=vals.reduce((s,v)=>s+v,0)/vals.length;
+    const std=Math.sqrt(vals.reduce((s,v)=>s+Math.pow(v-mean,2),0)/vals.length);
+    return{mean,std,minV:Math.min(...vals),maxV:Math.max(...vals)};
+  }
+  return{effectiveTailwind,buildPerSampleArray,analyzeTailwindArray};
+})();
+
+// AnalysisStore is provided by supabase.js
+
+// ═══════════════════════════════════════════════════════════════════
+// GLOBAL UI HELPERS (accessible from inline onclick)
+// ═══════════════════════════════════════════════════════════════════
+function openAdv(){
+  document.getElementById('advPanel').classList.add('open');
+  document.getElementById('advScrim').classList.add('open');
+}
+function closeAdv(){
+  document.getElementById('advPanel').classList.remove('open');
+  document.getElementById('advScrim').classList.remove('open');
+}
+function syncRho(){
+  const t=+document.getElementById('tempC').value;
+  const p=+document.getElementById('pressHpa').value;
+  const rh=+document.getElementById('rhPct').value;
+  const rho=AeroEngine.computeRho(t,p,rh);
+  document.getElementById('rho').value=rho.toFixed(4);
+  updateRhoBadge('manual');
+}
+function updateRhoBadge(src){
+  const val=parseFloat(document.getElementById('rho').value)||1.205;
+  document.getElementById('rhoBadgeVal').textContent=val.toFixed(4);
+  if(src)document.getElementById('rhoBadgeSrc').textContent=src;
+}
+function updateWindAssumptionUI(){
+  const mode=(document.querySelector('input[name="windMode"]:checked')||{}).value||'zero';
+  const windInput=document.getElementById('wind');
+  const wx=window.__lastWeather||{};
+  let windVal=0,summary='Wind assumption: zero wind.';
+  if(mode==='weather'){
+    windVal=Number.isFinite(wx.meanWs)?wx.meanWs:0;
+    summary=`Wind assumption: weather estimate (${windVal.toFixed(1)} m/s) applied. Manual override remains available in Advanced Settings.`;
+  }
+  if(windInput)windInput.value=windVal.toFixed(1);
+  const note=document.getElementById('windModeSummary');
+  if(note)note.textContent=summary;
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// AUTH UI
+// ═══════════════════════════════════════════════════════════════════
+let currentUser=null;
+
+function showApp(session){
+  currentUser=session;
+  document.getElementById('userBadge').style.display='flex';
+  document.getElementById('userDisplay').textContent='👤 '+session.displayName;
+  loadAndDisplayPlan();
+  // Setups are loaded asynchronously by the IIFE controller below
+}
+
+// ── Plan & billing ────────────────────────────────────────────────
+async function loadAndDisplayPlan(){
+  try{
+    const plan=await Plans.getUserPlan();
+    window.__userPlan=plan;
+    updatePlanUI(plan);
+  }catch(e){console.warn('loadAndDisplayPlan:',e)}
+}
+
+function updatePlanUI(plan){
+  const badge=document.getElementById('planBadge');
+  const upgradeBtn=document.getElementById('upgradeBtn');
+  const manageBtn=document.getElementById('manageBtn');
+  if(!badge)return;
+  badge.style.display='';
+  if(plan&&plan.plan==='pro'){
+    if(plan.isInternal){
+      badge.textContent=plan.internalRole==='developer'?'⚙️ DEV':'🧪 TEST';
+      badge.className='plan-badge pro';
+      upgradeBtn.style.display='none';manageBtn.style.display='none';
+    }else{
+      badge.textContent='⚡ PRO';badge.className='plan-badge pro';
+      upgradeBtn.style.display='none';manageBtn.style.display='';
+    }
+  }else{
+    badge.textContent='FREE';badge.className='plan-badge free';
+    upgradeBtn.style.display='';manageBtn.style.display='none';
+  }
+}
+
+function openUpgradeModal(limitReached){
+  const limitMsg=document.getElementById('upgradeLimitMsg');
+  const limitText=document.getElementById('upgradeLimitText');
+  if(limitReached){
+    limitText.textContent='You\'ve used all '+Plans.FREE_MONTHLY_LIMIT+' free analyses this month. Upgrade to continue.';
+    limitMsg.style.display='';
+  }else{
+    limitMsg.style.display='none';
+  }
+  document.getElementById('upgradeErr').classList.remove('show');
+  document.getElementById('upgradeOverlay').classList.add('open');
+}
+
+function closeUpgradeModal(){
+  document.getElementById('upgradeOverlay').classList.remove('open');
+}
+
+async function doStartCheckout(){
+  const btn=document.getElementById('upgradeProceedBtn');
+  const err=document.getElementById('upgradeErr');
+  err.classList.remove('show');btn.disabled=true;btn.textContent='Redirecting to Stripe…';
+  try{
+    const url=await Plans.startCheckout();
+    window.location.href=url;
+  }catch(e){
+    err.textContent=e.message||'Could not start checkout. Please try again.';
+    err.classList.add('show');btn.disabled=false;btn.textContent='Upgrade to Pro →';
+  }
+}
+
+async function doOpenPortal(){
+  const btn=document.getElementById('manageBtn');
+  const orig=btn.textContent;btn.textContent='Loading…';btn.disabled=true;
+  try{
+    const url=await Plans.openPortal();
+    window.location.href=url;
+  }catch(e){
+    alert(e.message||'Could not open billing portal.');
+    btn.textContent=orig;btn.disabled=false;
+  }
+}
+
+const _platformLogout=window.doLogout;
+async function doLogout(){
+  currentUser=null;
+  window.__userPlan=null;
+  setups=[];
+  lapResults=null;fitData=null;
+  document.getElementById('userBadge').style.display='none';
+  document.getElementById('planBadge').style.display='none';
+  document.getElementById('upgradeBtn').style.display='none';
+  document.getElementById('manageBtn').style.display='none';
+  // Reset results panel
+  ['summaryCard','insightCard','benchmarkCard','lapCard','mapCard','setupMgmtCard','comparisonChartCard','calculatorCard','cdaChartCard','rmseChartCard','veChartCard'].forEach(id=>{document.getElementById(id).style.display='none'});
+  document.getElementById('welcomeCard').style.display='';
+  document.getElementById('weatherCard').style.display='none';
+  document.getElementById('runBtn').disabled=true;
+  document.getElementById('reportBtn').disabled=true;
+  document.getElementById('fileName').classList.add('hidden');
+  await _platformLogout();
+}
+
+document.addEventListener('DOMContentLoaded',async ()=>{
+  document.querySelectorAll('input[name="windMode"]').forEach(el=>el.addEventListener('change',updateWindAssumptionUI));
+  updateWindAssumptionUI();
+  await AeroBPlatform.init('estimation',{onReady:showApp});
+
+  // Handle return from Stripe Checkout
+  const params=new URLSearchParams(window.location.search);
+  if(params.get('subscription')==='success'){
+    history.replaceState({},'',window.location.pathname);
+    // Webhook is async — wait 2 s then re-fetch plan
+    setTimeout(async()=>{
+      if(currentUser){
+        await loadAndDisplayPlan();
+        const p=window.__userPlan;
+        if(p&&p.plan==='pro'){
+          // show success in the status bar if it exists
+          const st=document.getElementById('status');
+          if(st){st.className='status success';st.textContent='🎉 Welcome to Pro! Unlimited analyses unlocked.'}
+        }
+      }
+    },2500);
+  }
+});
+
+// ═══════════════════════════════════════════════════════════════════
+// MAIN UI CONTROLLER
+// ═══════════════════════════════════════════════════════════════════
+(()=>{
+  const $=id=>document.getElementById(id);
+  let fitData=null,lapResults=null,analysisState=null,lapRmseCache={};
+  let currentFileName='';
+  let excludedLapIds=new Set(); // laps excluded as bad data
+  let currentWindStats=null;   // wind stats from latest run or opened history item
+  let setups=[];
+  let modalEditSetupId=null;
+  const colorPalette=['#1f3b88','#ffa500','#16a34a','#dc2626','#7c3aed','#0891b2','#ea580c','#6366f1'];
+  let cdaChartInst=null,rmseChartInst=null,veChartInst=null,comparisonChartInst=null;
+
+  // ── Helpers ───────────────────────────────────────────────────
+  const avg=arr=>arr.length?arr.reduce((s,v)=>s+v,0)/arr.length:NaN;
+  const escapeHtml=s=>String(s??'').replace(/[&<>"']/g,ch=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));
+  // Only allow valid hex colors (#rgb, #rrggbb, #rrggbbaa) in inline style attributes.
+  // Rejects any value that could break out of the attribute and inject HTML/JS.
+  const safeCssColor=c=>/^#[0-9a-fA-F]{3,8}$/.test(String(c??''))?c:'#1f3b88';
+  function formatDuration(totalSeconds){
+    if(!Number.isFinite(totalSeconds))return '—';
+    const hrs=Math.floor(totalSeconds/3600),mins=Math.floor((totalSeconds%3600)/60),secs=Math.round(totalSeconds%60);
+    return hrs>0?`${hrs}h ${mins}m ${String(secs).padStart(2,'0')}s`:`${mins}:${String(secs).padStart(2,'0')}`;
+  }
+  function formatDeltaSeconds(seconds){
+    if(!Number.isFinite(seconds))return '—';
+    if(Math.abs(seconds)<0.05)return 'Best';
+    return `${seconds>0?'+':''}${seconds.toFixed(1)} s`;
+  }
+  function getSelectedWindMode(){return (document.querySelector('input[name="windMode"]:checked')||{}).value||'zero'}
+  function getEffectiveWind(){return +$('wind').value||0}
+  function buildAnalysisRecords(records){
+    if(!records)return[];
+    const elevationMode=(document.querySelector('input[name="elevationMode"]:checked')||{}).value||'file';
+    const cleaned=records.map(r=>{const{_tw,...rest}=r;return rest});
+    if(elevationMode!=='flat')return cleaned;
+    const baseAlt=records.find(r=>Number.isFinite(r.alt_m))?.alt_m??0;
+    return cleaned.map(r=>({...r,alt_m:baseAlt}));
+  }
+  function getSetupStats(setup){
+    const cdas=setup.dataPoints.map(p=>p.cda).filter(Number.isFinite);
+    const mean=avg(cdas);
+    const variance=cdas.length?cdas.reduce((s,c)=>s+Math.pow(c-mean,2),0)/cdas.length:0;
+    return{mean,std:Math.sqrt(variance),min:Math.min(...cdas),max:Math.max(...cdas),count:cdas.length};
+  }
+  function renderBenchmarkCard(){
+    const mass=+$('mass').value||0;
+    const heightCm=+$('heightCm').value||0;
+    const bmi=heightCm>0?mass/Math.pow(heightCm/100,2):null;
+    $('benchmarkContent').innerHTML=`
+      <strong>Under construction</strong>
+      <div>We are preparing a future benchmark layer that compares your CdA to riders with similar height and weight.</div>
+      <div style="margin-top:8px">Current basis saved: <strong>${heightCm?`${Math.round(heightCm)} cm / ${mass.toFixed(1)} kg`:mass?`${mass.toFixed(1)} kg`:'profile not complete'}</strong>${bmi?` (BMI ${bmi.toFixed(1)})`:''}.</div>
+      <div style="margin-top:8px">Once enough data is available, this card can show percentile ranking, peer bands, and realistic target ranges.</div>
+    `;
+    $('benchmarkCard').style.display='';
+  }
+  function updateReportButtonState(){$('reportBtn').disabled=!lapResults||!fitData}
+  function getIncludedLaps(){
+    if(!lapResults)return[];
+    return lapResults.filter(l=>!excludedLapIds.has(l.lapId));
+  }
+  function getIncludedValidLaps(){return getIncludedLaps().filter(l=>isFinite(l.cda))}
+
+  function persistSetups(){
+    if(currentUser)Auth.saveSetups(currentUser.id,setups).catch(e=>console.warn('persistSetups:',e));
+  }
+
+  // Which setups a lap belongs to
+  function getSetupTagsForLap(lapId){
+    const tags=[];
+    for(const s of setups){
+      if(s.dataPoints.some(p=>p.lapId===lapId&&p.fileName===currentFileName)){
+        tags.push({name:s.name,color:s.color});
+      }
+    }
+    return tags;
+  }
+
+  function calculateSummary(){
+    const valid=getIncludedValidLaps();if(valid.length===0)return null;
+    const avgCda=valid.reduce((s,l)=>s+l.cda,0)/valid.length;
+    const varCda=valid.reduce((s,l)=>s+Math.pow(l.cda-avgCda,2),0)/valid.length;
+    const stddevCda=Math.sqrt(varCda);
+    const minCda=Math.min(...valid.map(l=>l.cda));
+    const maxCda=Math.max(...valid.map(l=>l.cda));
+    const avgRmse=valid.reduce((s,l)=>s+l.rmse,0)/valid.length;
+    // avgNrmse: average normalized RMSE across included valid laps.
+    // Falls back to a rough estimate for old restored records that lack nrmse.
+    const nrmseVals=valid.map(l=>l.nrmse).filter(v=>v!=null&&Number.isFinite(v));
+    const avgNrmse=nrmseVals.length?nrmseVals.reduce((s,v)=>s+v,0)/nrmseVals.length:null;
+    const avgSpd=valid.reduce((s,l)=>s+l.avgSpeedKmh,0)/valid.length;
+    const avgPwr=avg(valid.map(l=>l.avgPowerW).filter(Number.isFinite));
+    const avgHr=avg(valid.map(l=>l.avgHeartRateBpm).filter(Number.isFinite));
+    return{avgCda,stddevCda,minCda,maxCda,avgRmse,avgNrmse,avgSpd,avgPwr,avgHr,validCount:valid.length,totalCount:lapResults.length};
+  }
+
+  function updateSummaryDisplay(){
+    const summary=calculateSummary();
+    if(!summary){$('summaryCard').style.display='none';return}
+    $('summaryGrid').innerHTML=`
+      <div class="metric highlight"><div class="value">${summary.avgCda.toFixed(4)}</div><div class="unit">m²</div><div class="label">Mean CdA</div></div>
+      <div class="metric"><div class="value">±${summary.stddevCda.toFixed(4)}</div><div class="unit">m²</div><div class="label">Std Dev</div></div>
+      <div class="metric"><div class="value">${summary.minCda.toFixed(4)}</div><div class="unit">m²</div><div class="label">Min CdA</div></div>
+      <div class="metric"><div class="value">${summary.maxCda.toFixed(4)}</div><div class="unit">m²</div><div class="label">Max CdA</div></div>
+      <div class="metric" title="Normalized RMSE = RMSE ÷ elevation range. Comparable across laps. Raw RMSE: ${summary.avgRmse.toFixed(3)} m">
+        <div class="value">${summary.avgNrmse!=null?(summary.avgNrmse*100).toFixed(1)+'%':summary.avgRmse.toFixed(3)}</div>
+        <div class="unit">${summary.avgNrmse!=null?'NRMSE':'m raw'}</div>
+        <div class="label">Avg Fit Error</div>
+      </div>
+      <div class="metric"><div class="value">${summary.avgSpd.toFixed(1)}</div><div class="unit">km/h</div><div class="label">Avg Speed</div></div>
+      <div class="metric"><div class="value">${Number.isFinite(summary.avgPwr)?summary.avgPwr.toFixed(0):'â€”'}</div><div class="unit">W</div><div class="label">Avg Power</div></div>
+      <div class="metric"><div class="value">${Number.isFinite(summary.avgHr)?summary.avgHr.toFixed(0):'â€”'}</div><div class="unit">bpm</div><div class="label">Avg HR</div></div>
+      <div class="metric"><div class="value">${summary.validCount}/${summary.totalCount}</div><div class="unit"></div><div class="label">Included</div></div>
+    `;
+    $('summaryCard').style.display='';
+  }
+
+  // ── Lap Table (two-step: exclude bad laps, then assign to setups) ───
+  function updateLapTable(){
+    const tbody=$('lapBody');tbody.innerHTML='';
+    if(!lapResults)return;
+    for(const l of lapResults){
+      const isExcl=excludedLapIds.has(l.lapId);
+      const qcls={'Excellent':'q-excellent','Good':'q-good','Fair':'q-fair','Poor':'q-poor','Unreliable':'q-unreliable'}[l.quality.label]||'q-unreliable';
+      const tags=getSetupTagsForLap(l.lapId);
+      const tagsHtml=tags.length?tags.map(t=>`<span class="setup-tag" style="background:${safeCssColor(t.color)}">${escapeHtml(t.name)}</span>`).join(''):'<span style="color:var(--sub);font-size:11px">—</span>';
+      const row=document.createElement('tr');
+      row.id='lap-row-'+l.lapId;
+      if(isExcl)row.classList.add('excluded');
+      row.innerHTML=`
+        <td><button class="lap-toggle ${isExcl?'exc':'inc'}" data-lid="${l.lapId}">${isExcl?'Excluded':'Included'}</button></td>
+        <td>${l.lapId}</td>
+        <td><strong>${isFinite(l.cda)?l.cda.toFixed(4):'—'}</strong></td>
+        <td title="${isFinite(l.rmse)?'Raw RMSE: '+l.rmse.toFixed(3)+' m':''}">${l.nrmse!=null&&isFinite(l.nrmse)?(l.nrmse*100).toFixed(1)+'%':isFinite(l.rmse)?l.rmse.toFixed(3)+' m':'—'}</td>
+        <td>${formatDuration(l.durationS)}</td>
+        <td>${l.avgSpeedKmh.toFixed(1)} km/h</td>
+        <td>${Number.isFinite(l.avgPowerW)?l.avgPowerW.toFixed(0)+' W':'â€”'}</td>
+        <td>${Number.isFinite(l.avgHeartRateBpm)?l.avgHeartRateBpm.toFixed(0)+' bpm':'â€”'}</td>
+        <td><span class="quality-badge ${qcls}">${l.quality.label} (${l.quality.score})</span></td>
+        <td><div class="setup-tags">${tagsHtml}</div></td>
+      `;
+      const btn=row.querySelector('.lap-toggle');
+      btn.onclick=()=>toggleLapExclusion(l.lapId);
+      tbody.appendChild(row);
+    }
+  }
+
+  function refreshAllAfterLapChange(){
+    updateLapTable();updateSummaryDisplay();renderCdaChart();
+    const s=calculateSummary();
+    if(s){renderInsightsPanel(s,currentWindStats);$('insightCard').style.display='';}
+    renderBenchmarkCard();
+  }
+
+  function toggleLapExclusion(lapId){
+    if(excludedLapIds.has(lapId))excludedLapIds.delete(lapId);
+    else excludedLapIds.add(lapId);
+    refreshAllAfterLapChange();
+  }
+
+  function initLapButtons(){
+    $('includeAllBtn').onclick=()=>{
+      excludedLapIds.clear();
+      refreshAllAfterLapChange();
+      setStatus('success','All laps included');
+    };
+    $('excludePoorBtn').onclick=()=>{
+      if(!lapResults)return;
+      let count=0;
+      for(const l of lapResults){
+        if(l.quality.label==='Poor'||l.quality.label==='Unreliable'||!isFinite(l.cda)){
+          excludedLapIds.add(l.lapId);count++;
+        }
+      }
+      refreshAllAfterLapChange();
+      setStatus('success',count>0?`Excluded ${count} poor/unreliable lap(s)`:'No poor laps to exclude');
+    };
+    $('newSetupBtn').onclick=()=>openSetupModal();
+  }
+
+  // ── Setup Modal ──────────────────────────────────────────────
+  window.openSetupModal=function(setupId=null){
+    const valid=getIncludedValidLaps();
+    if(valid.length===0){setStatus('error','No valid included laps — exclude bad laps first, then create a setup');return}
+    modalEditSetupId=setupId;
+    const editing=setupId?setups.find(s=>s.id===setupId):null;
+    $('setupModalTitle').textContent=editing?'Add Laps To Setup':'Create New Setup';
+    $('setupModalSaveBtn').textContent=editing?'Add Selected Laps':'Save Setup';
+    $('modalSetupName').value=editing?editing.name:'';
+    $('modalSetupName').disabled=!!editing;
+    const list=$('modalLapList');
+    list.innerHTML='';
+    for(const l of valid){
+      const qcls={'Excellent':'q-excellent','Good':'q-good','Fair':'q-fair','Poor':'q-poor','Unreliable':'q-unreliable'}[l.quality.label]||'q-unreliable';
+      const alreadyInThisSetup=editing?.dataPoints?.some(p=>p.lapId===l.lapId&&p.fileName===currentFileName);
+      const alreadyInOtherSetup=!alreadyInThisSetup&&setups.some(s=>s.id!==modalEditSetupId&&s.dataPoints.some(p=>p.lapId===l.lapId&&p.fileName===currentFileName));
+      const alreadyInSetup=alreadyInThisSetup||alreadyInOtherSetup;
+      const item=document.createElement('label');
+      item.className='smodal-lap';
+      item.innerHTML=`
+        <input type="checkbox" class="modal-lap-chk" data-lid="${l.lapId}" ${!alreadyInSetup&&!editing?'checked':''} ${alreadyInSetup?'disabled':''}>
+        <div class="smodal-lap-info">
+          <span class="ln">Lap ${l.lapId}</span>
+          <span class="lc">${l.cda.toFixed(4)} m²</span>
+          <span class="quality-badge ${qcls}" style="font-size:10px">${alreadyInThisSetup?'Already added':alreadyInOtherSetup?'In another setup':l.quality.label}</span>
+        </div>
+      `;
+      item.querySelector('input').onchange=()=>updateModalPreview();
+      list.appendChild(item);
+    }
+    updateModalPreview();
+    $('setupModal').classList.add('open');
+    setTimeout(()=>editing?document.querySelector('.modal-lap-chk:not([disabled])')?.focus():$('modalSetupName').focus(),200);
+  };
+  window.closeSetupModal=function(){
+    modalEditSetupId=null;
+    $('modalSetupName').disabled=false;
+    $('setupModal').classList.remove('open');
+  };
+  window.modalSelectAll=function(){document.querySelectorAll('.modal-lap-chk').forEach(c=>{c.checked=true});updateModalPreview()};
+  window.modalSelectNone=function(){document.querySelectorAll('.modal-lap-chk').forEach(c=>{c.checked=false});updateModalPreview()};
+
+  function updateModalPreview(){
+    const checked=Array.from(document.querySelectorAll('.modal-lap-chk:checked')).map(c=>+c.dataset.lid);
+    const prev=$('modalPreview');
+    if(checked.length===0){
+      prev.classList.add('empty');
+      prev.innerHTML='<div class="pv">Select at least one lap</div>';
+      return;
+    }
+    prev.classList.remove('empty');
+    const laps=lapResults.filter(l=>checked.includes(l.lapId)&&isFinite(l.cda));
+    if(laps.length===0){prev.innerHTML='<div class="pv">—</div>';return}
+    const mean=laps.reduce((s,l)=>s+l.cda,0)/laps.length;
+    const std=Math.sqrt(laps.reduce((s,l)=>s+Math.pow(l.cda-mean,2),0)/laps.length);
+    const nrmseVals=laps.map(l=>l.nrmse).filter(v=>v!=null&&isFinite(v));
+    const fitStr=nrmseVals.length
+      ?`Mean NRMSE ${(nrmseVals.reduce((s,v)=>s+v,0)/nrmseVals.length*100).toFixed(1)}%`
+      :`Mean RMSE ${(laps.reduce((s,l)=>s+l.rmse,0)/laps.length).toFixed(3)} m`;
+    prev.innerHTML=`
+      <div class="pv">${mean.toFixed(4)} m²</div>
+      <div class="ps">${laps.length} lap(s) · ± ${std.toFixed(4)} m² · ${fitStr}</div>
+    `;
+  }
+
+  window.saveSetupFromModal=function(){
+    const checked=Array.from(document.querySelectorAll('.modal-lap-chk:checked')).map(c=>+c.dataset.lid);
+    if(checked.length===0){setStatus('error',modalEditSetupId?'Select at least one extra lap to add':'Select at least one lap for the setup');return}
+    const laps=lapResults.filter(l=>checked.includes(l.lapId)&&isFinite(l.cda));
+    if(laps.length===0){setStatus('error','No valid laps selected');return}
+    const payload=laps.map(l=>({cda:l.cda,rmse:l.rmse,speed:l.avgSpeedKmh,avgPowerW:l.avgPowerW,avgHeartRateBpm:l.avgHeartRateBpm,lapId:l.lapId,fileName:currentFileName}));
+    if(modalEditSetupId){
+      const setup=setups.find(s=>s.id===modalEditSetupId);
+      if(!setup){setStatus('error','Setup not found');return}
+      const existing=new Set(setup.dataPoints.map(p=>`${p.fileName}::${p.lapId}`));
+      const added=payload.filter(p=>!existing.has(`${p.fileName}::${p.lapId}`));
+      setup.dataPoints.push(...added);
+      persistSetups();
+      closeSetupModal();
+      updateLapTable();
+      renderSetupList();renderComparisonChart();renderCalculatorTable();
+      setStatus('success',`Added ${added.length} lap(s) to "${setup.name}"`);
+      return;
+    }
+    const name=($('modalSetupName').value||'').trim();
+    if(!name){$('modalSetupName').style.borderColor='#dc2626';$('modalSetupName').focus();return}
+    $('modalSetupName').style.borderColor='';
+    const setupId='s_'+Date.now()+'_'+Math.random().toString(36).substr(2,6);
+    const setup={id:setupId,name,color:colorPalette[setups.length%colorPalette.length],dataPoints:payload};
+    setups.push(setup);persistSetups();
+    closeSetupModal();
+    updateLapTable(); // refresh setup tags on laps
+    renderSetupList();renderComparisonChart();renderCalculatorTable();
+    $('setupMgmtCard').style.display='';
+    $('comparisonChartCard').style.display='';
+    $('calculatorCard').style.display='';
+    setStatus('success',`Saved setup "${name}" with ${laps.length} lap(s)`);
+  };
+
+  // ── Weather ───────────────────────────────────────────────────
+  async function fetchAndShowWeather(meta){
+    if(!meta.median_lat||!meta.median_lon){
+      $('wxContent').innerHTML='<div class="wx-err">No GPS data in this file — enter environment manually in Advanced Settings.</div>';
+      return;
+    }
+    $('weatherCard').style.display='';
+    $('wxContent').innerHTML='<div class="wx-loading"><span class="spin"></span>Fetching weather from Open-Meteo…</div>';
+    try{
+      const wx=await WxModule.getWeather(meta.median_lat,meta.median_lon,meta.start_time_epoch,meta.start_time_epoch+7200,meta.median_alt);
+      showWeatherCard(wx);
+      // Auto-populate T/P/RH/ρ so the user doesn't have to click Apply manually
+      if(typeof window.applyWeather==='function')window.applyWeather();
+    }catch(e){
+      $('wxContent').innerHTML=`<div class="wx-err">Weather unavailable: ${escapeHtml(e.message)}<br><small>Enter environment manually in Advanced Settings.</small></div>`;
+    }
+  }
+
+  function showWeatherCard(wx){
+    const srcLabel=wx.source==='forecast'?'Open-Meteo Forecast':'ERA5 Archive';
+    const srcClass=wx.source==='forecast'?'':'arc';
+    const fmt=(v,d)=>v!=null?v.toFixed(d):'—';
+    const wd=wx.meanWd!=null?Math.round(wx.meanWd):null;
+    const cardDir=wx.meanWd!=null?WxModule.degToCard(wx.meanWd):'—';
+    const compassSvg=wd!=null
+      ?`<svg width="48" height="48" viewBox="0 0 48 48" style="flex-shrink:0">
+          <circle cx="24" cy="24" r="22" fill="#eef2f9" stroke="#d0d7e3" stroke-width="1.5"/>
+          <text x="24" y="9" text-anchor="middle" font-size="7" font-weight="700" fill="#5a6880" font-family="sans-serif">N</text>
+          <text x="24" y="43" text-anchor="middle" font-size="7" font-weight="700" fill="#5a6880" font-family="sans-serif">S</text>
+          <text x="40" y="28" text-anchor="middle" font-size="7" font-weight="700" fill="#5a6880" font-family="sans-serif">E</text>
+          <text x="8" y="28" text-anchor="middle" font-size="7" font-weight="700" fill="#5a6880" font-family="sans-serif">W</text>
+          <g transform="rotate(${wd},24,24)">
+            <line x1="24" y1="13" x2="24" y2="34" stroke="#1f3b88" stroke-width="2.5" stroke-linecap="round"/>
+            <polygon points="24,39 19.5,30 28.5,30" fill="#1f3b88"/>
+            <circle cx="24" cy="12" r="3" fill="#1f3b88"/>
+          </g>
+        </svg>`
+      :`<svg width="48" height="48" viewBox="0 0 48 48" style="flex-shrink:0">
+          <circle cx="24" cy="24" r="22" fill="#eef2f9" stroke="#d0d7e3" stroke-width="1.5"/>
+          <text x="24" y="28" text-anchor="middle" font-size="9" fill="#94a3b8" font-family="sans-serif">N/A</text>
+        </svg>`;
+    $('wxContent').innerHTML=`
+      <span class="wx2-source ${srcClass}">📡 ${srcLabel} · ${wx.n} pts</span>
+      <div class="wx2-hero">
+        <div class="wx2-temp">
+          <div class="wt-val">${fmt(wx.meanTemp,1)}°</div>
+          <div class="wt-lbl">Temperature (°C)</div>
+        </div>
+        <div class="wx2-wind">
+          ${compassSvg}
+          <div>
+            <div class="wx2-wind-speed">${fmt(wx.meanWs,1)} m/s</div>
+            <div class="wx2-wind-dir">from ${cardDir}${wd!=null?' ('+wd+'°)':''}</div>
+          </div>
+        </div>
+      </div>
+      <div class="wx2-row">
+        <div class="wx2-tile"><div class="wv">${fmt(wx.meanP,0)}</div><div class="wl">Pressure hPa</div></div>
+        <div class="wx2-tile"><div class="wv">${fmt(wx.meanRh,0)}%</div><div class="wl">Humidity</div></div>
+        <div class="wx2-tile rho-tile"><div class="wv">${wx.rho!=null?wx.rho.toFixed(4):'—'}</div><div class="wl">ρ kg/m³</div></div>
+      </div>
+      <div class="wx2-note">T, P, RH and ρ were applied automatically. Wind direction is projected per-sample via the vector model when heading data is available.</div>
+    `;
+    window.__lastWeather=wx;
+  }
+
+  window.applyWeather=function(){
+    const wx=window.__lastWeather;if(!wx)return;
+    if(wx.meanTemp!=null)$('tempC').value=wx.meanTemp.toFixed(1);
+    if(wx.meanP!=null)$('pressHpa').value=wx.meanP.toFixed(1);
+    if(wx.meanRh!=null)$('rhPct').value=wx.meanRh.toFixed(0);
+    if(wx.rho!=null){$('rho').value=wx.rho.toFixed(4);updateRhoBadge('weather');}
+    else{syncRho();updateRhoBadge('weather');}
+    updateWindAssumptionUI();
+    setStatus('success','Weather applied to parameters');
+  };
+
+  // ── Dropzone ──────────────────────────────────────────────────
+  const dz=$('dropzone'),fi=$('fileInput');
+  dz.onclick=()=>fi.click();
+  dz.ondragover=e=>{e.preventDefault();dz.classList.add('drag-over')};
+  dz.ondragleave=()=>dz.classList.remove('drag-over');
+  dz.ondrop=e=>{e.preventDefault();dz.classList.remove('drag-over');if(e.dataTransfer.files.length)handleFile(e.dataTransfer.files[0])};
+  fi.onchange=()=>{if(fi.files.length)handleFile(fi.files[0])};
+
+  function handleFile(file){
+    // Route by file extension — FIT (binary ArrayBuffer) or GPX (text XML)
+    const ext=file.name.split('.').pop().toLowerCase();
+    const isFit=ext==='fit';
+    const isGpx=ext==='gpx';
+    if(!isFit&&!isGpx){setStatus('error','Please select a .FIT or .GPX file');return}
+    const fn=$('fileName');fn.textContent=file.name;fn.classList.remove('hidden');
+    currentFileName=file.name;
+    analysisState=null;
+    setStatus('info',`Parsing ${isFit?'FIT':'GPX'} file…`);
+    const reader=new FileReader();
+    reader.onload=()=>{
+      try{
+        let parsed;
+        if(isFit){
+          parsed=new FitParser().parse(reader.result);
+        }else{
+          // GPX is XML text
+          parsed=new GpxParser().parse(reader.result);
+          if(!parsed.meta.hasPower){
+            // Show map / weather but block the Analyze button
+            fitData=parsed;
+            setStatus('warning','GPX file contains no power data. CdA analysis requires a power meter. Route map and weather are still available.');
+            $('runBtn').disabled=true;
+            $('clearAnalysisBar').style.display='';
+            updateReportButtonState();
+            fetchAndShowWeather(parsed.meta);
+            renderRideMap(parsed.records);
+            return;
+          }
+        }
+        fitData=parsed;
+        const lapNote=isGpx?' (GPX — treated as single lap)':'';
+        setStatus('success',`Parsed ${parsed.meta.n_records} records, ${parsed.meta.n_laps} lap(s)${lapNote}`);
+        $('runBtn').disabled=false;
+        $('clearAnalysisBar').style.display='';
+        updateReportButtonState();
+        fetchAndShowWeather(parsed.meta);
+        renderRideMap(parsed.records);
+      }catch(e){setStatus('error','Parse error: '+e.message);fitData=null;$('runBtn').disabled=true;updateReportButtonState()}
+    };
+    // FIT is binary; GPX is text
+    if(isFit)reader.readAsArrayBuffer(file);
+    else reader.readAsText(file);
+  }
+
+  function mercatorWorldPx(lat,lon,zoom){
+    const scale=256*Math.pow(2,zoom);
+    const latClamped=Math.max(-85.05112878,Math.min(85.05112878,lat));
+    const sin=Math.sin(latClamped*Math.PI/180);
+    return{
+      x:((lon+180)/360)*scale,
+      y:(0.5-Math.log((1+sin)/(1-sin))/(4*Math.PI))*scale
+    };
+  }
+  function estimateTileZoom(points,width,height,pad=24){
+    for(let zoom=18;zoom>=1;zoom--){
+      const worldPts=points.map(p=>mercatorWorldPx(p.lat,p.lon,zoom));
+      const spanX=(Math.max(...worldPts.map(p=>p.x))-Math.min(...worldPts.map(p=>p.x)))||1;
+      const spanY=(Math.max(...worldPts.map(p=>p.y))-Math.min(...worldPts.map(p=>p.y)))||1;
+      if(spanX<=Math.max(width-2*pad,64)&&spanY<=Math.max(height-2*pad,64))return zoom;
+    }
+    return 1;
+  }
+  function updateMapBackdrop(points,width,height){
+    const backdrop=$('mapBackdrop');
+    backdrop.innerHTML='';
+    if(!points.length){backdrop.style.display='none';return null}
+    const zoom=estimateTileZoom(points,width,height,28);
+    const worldPts=points.map(p=>mercatorWorldPx(p.lat,p.lon,zoom));
+    const minX=Math.min(...worldPts.map(p=>p.x)),maxX=Math.max(...worldPts.map(p=>p.x));
+    const minY=Math.min(...worldPts.map(p=>p.y)),maxY=Math.max(...worldPts.map(p=>p.y));
+    const centerX=(minX+maxX)/2,centerY=(minY+maxY)/2;
+    const topLeftX=centerX-width/2,topLeftY=centerY-height/2;
+    const tileSize=256,tileCount=Math.pow(2,zoom);
+    const startTileX=Math.floor(topLeftX/tileSize),endTileX=Math.floor((topLeftX+width)/tileSize);
+    const startTileY=Math.floor(topLeftY/tileSize),endTileY=Math.floor((topLeftY+height)/tileSize);
+    backdrop.style.display='block';
+    for(let ty=startTileY;ty<=endTileY;ty++){
+      if(ty<0||ty>=tileCount)continue;
+      for(let tx=startTileX;tx<=endTileX;tx++){
+        const tile=document.createElement('img');
+        tile.className='map-tile';
+        tile.alt='';
+        tile.decoding='async';
+        tile.src=`https://tile.openstreetmap.org/${zoom}/${((tx%tileCount)+tileCount)%tileCount}/${ty}.png`;
+        tile.style.left=`${tx*tileSize-topLeftX}px`;
+        tile.style.top=`${ty*tileSize-topLeftY}px`;
+        backdrop.appendChild(tile);
+      }
+    }
+    return{
+      toCanvas:(lat,lon)=>{
+        const wp=mercatorWorldPx(lat,lon,zoom);
+        return{x:wp.x-topLeftX,y:wp.y-topLeftY};
+      }
+    };
+  }
+
+  // ── Ride Map ──────────────────────────────────────────────────
+  function renderRideMap(records){
+    $('mapCard').style.display='';
+    $('mapBackdrop').style.display='none';
+    $('mapBackdrop').innerHTML='';
+    const gpsRecs=records.filter(r=>r.lat!=null&&r.lon!=null);
+    if(gpsRecs.length<2){
+      $('mapCard').querySelector('.map-wrap').innerHTML='<div class="map-no-gps">📍 No GPS data in this file<br><small style="margin-top:4px;display:block">Route map not available — enter weather manually</small></div>';
+      // Still show stats from non-GPS data
+      const last=records[records.length-1];
+      const totalDist=(last.dist_m||0)/1000;
+      const totalTime=last.time_s||0;
+      const hrs=Math.floor(totalTime/3600),mins=Math.floor((totalTime%3600)/60),secs=Math.round(totalTime%60);
+      $('mapStatDist').textContent=totalDist.toFixed(1)+' km';
+      $('mapStatElev').textContent='—';
+      $('mapStatTime').textContent=hrs>0?`${hrs}h ${mins}m`:`${mins}m ${secs<10?'0':''}${secs}s`;
+      $('mapStatLaps').textContent=new Set(records.map(r=>r.lap_id).filter(l=>l>0)).size||'—';
+      return;
+    }
+    // Downsample to ≤1000 GPS points
+    const maxPts=1000;
+    const step=Math.max(1,Math.floor(gpsRecs.length/maxPts));
+    const pts=[];
+    for(let i=0;i<gpsRecs.length;i+=step)pts.push(gpsRecs[i]);
+    if(pts[pts.length-1]!==gpsRecs[gpsRecs.length-1])pts.push(gpsRecs[gpsRecs.length-1]);
+    // Canvas setup
+    const canvas=$('mapCanvas');
+    const W=Math.max(300,canvas.parentElement.clientWidth||600);
+    const H=260;
+    const projection=updateMapBackdrop(pts,W,H);
+    canvas.width=Math.round(W*devicePixelRatio);
+    canvas.height=Math.round(H*devicePixelRatio);
+    canvas.style.width=W+'px';canvas.style.height=H+'px';
+    const ctx=canvas.getContext('2d');
+    ctx.scale(devicePixelRatio,devicePixelRatio);
+    // Background
+    ctx.clearRect(0,0,W,H);
+    ctx.fillStyle='rgba(255,255,255,0.08)';ctx.fillRect(0,0,W,H);
+    // Route line
+    ctx.beginPath();
+    ctx.strokeStyle='rgba(31,59,136,0.8)';ctx.lineWidth=2;ctx.lineJoin='round';ctx.lineCap='round';
+    const startPt=projection?.toCanvas(pts[0].lat,pts[0].lon)||{x:0,y:0};
+    ctx.moveTo(startPt.x,startPt.y);
+    for(let i=1;i<pts.length;i++){
+      const p=projection?.toCanvas(pts[i].lat,pts[i].lon)||{x:0,y:0};
+      ctx.lineTo(p.x,p.y);
+    }
+    ctx.stroke();
+    // Markers
+    function dot(x,y,color){ctx.beginPath();ctx.arc(x,y,6,0,2*Math.PI);ctx.fillStyle=color;ctx.fill();ctx.strokeStyle='#fff';ctx.lineWidth=2;ctx.stroke()}
+    dot(startPt.x,startPt.y,'#16a34a');
+    const endPt=projection?.toCanvas(pts[pts.length-1].lat,pts[pts.length-1].lon)||{x:0,y:0};
+    dot(endPt.x,endPt.y,'#dc2626');
+    // Stats tiles
+    const last=records[records.length-1];
+    const totalDist=(last.dist_m||0)/1000;
+    const totalTime=last.time_s||0;
+    const hrs=Math.floor(totalTime/3600),mins=Math.floor((totalTime%3600)/60),secs=Math.round(totalTime%60);
+    const durStr=hrs>0?`${hrs}h ${mins}m`:`${mins}m ${secs<10?'0':''}${secs}s`;
+    const alts=records.filter(r=>r.alt_m!=null&&r.alt_m>-400).map(r=>r.alt_m);
+    let elevGain=0;for(let i=1;i<alts.length;i++){const d=alts[i]-alts[i-1];if(d>0)elevGain+=d}
+    const nLaps=new Set(records.map(r=>r.lap_id).filter(l=>l>0)).size;
+    $('mapStatDist').textContent=totalDist.toFixed(1)+' km';
+    $('mapStatElev').textContent='+'+Math.round(elevGain)+' m';
+    $('mapStatTime').textContent=durStr;
+    $('mapStatLaps').textContent=nLaps||'—';
+  }
+
+  // ── CdA Insights Panel ────────────────────────────────────────
+  function renderInsightsPanel(summary,windStats){
+    if(!summary)return;
+    const cda=summary.avgCda;
+    const pct=Math.max(0,Math.min(100,(cda-0.18)/(0.50-0.18)*100));
+    // Position label + context
+    let posLabel,posCtx;
+    if(cda<0.22){posLabel='Pro TT';posCtx='World-class time trial position — matches elite TT and track athletes.'}
+    else if(cda<0.26){posLabel='Aero Road';posCtx='Excellent aerodynamic position. Approaching top-end road race and TT levels.'}
+    else if(cda<0.30){posLabel='Road Drops';posCtx='Good road position on the drops. Typical for well-optimised road cyclists.'}
+    else if(cda<0.36){posLabel='Road Hoods';posCtx='Standard road position on the hoods. Position changes could lower this further.'}
+    else{posLabel='Upright';posCtx='Upright or comfort position. Significant aero gains are available with position changes.'}
+    // Consistency
+    const std=summary.stddevCda;
+    let conL,conCls,conNote;
+    if(std<0.003){conL='Excellent';conCls='good';conNote='Very consistent laps — reliable estimate'}
+    else if(std<0.007){conL='Good';conCls='ok';conNote='Minor lap variation — solid result'}
+    else if(std<0.012){conL='Fair';conCls='';conNote='Moderate variation — check course conditions'}
+    else{conL='Variable';conCls='warn';conNote='High variation — some laps may be unreliable'}
+    // Fit quality — use NRMSE if available, fall back to raw RMSE for old restored records
+    // NRMSE thresholds: <10% excellent, <20% good, <35% fair, ≥35% poor
+    const nrmseVal=summary.avgNrmse;
+    const hasNrmse=nrmseVal!=null&&isFinite(nrmseVal);
+    let rmL,rmCls,rmNote,rmDisp;
+    if(hasNrmse){
+      rmDisp=(nrmseVal*100).toFixed(1)+'% NRMSE';
+      if(nrmseVal<0.10){rmL='Excellent';rmCls='good';rmNote='VE fits altitude very well — high confidence'}
+      else if(nrmseVal<0.20){rmL='Good';rmCls='ok';rmNote='Good altitude match — result is reliable'}
+      else if(nrmseVal<0.35){rmL='Fair';rmCls='';rmNote='Moderate fit — check altitude calibration'}
+      else{rmL='Poor';rmCls='warn';rmNote='Poor fit — grade data or GPS altitude issues'}
+    }else{
+      // Legacy fallback for restored analyses from old records
+      const rmse=summary.avgRmse;rmDisp=rmse.toFixed(3)+' m RMSE';
+      if(rmse<1.5){rmL='Excellent';rmCls='good';rmNote='VE fits altitude very well — high confidence'}
+      else if(rmse<3.0){rmL='Good';rmCls='ok';rmNote='Good altitude match — result is reliable'}
+      else if(rmse<5.0){rmL='Fair';rmCls='';rmNote='Moderate fit — check altitude calibration'}
+      else{rmL='Poor';rmCls='warn';rmNote='Poor fit — grade data or GPS altitude issues'}
+    }
+    $('insightCard').innerHTML=`
+      <div class="insight-hero">
+        <div class="insight-cda-val">${cda.toFixed(4)} <span style="font-size:18px;font-weight:400;color:var(--sub)">m²</span></div>
+        <div class="insight-cda-sub"><strong>${posLabel}</strong> · ${posCtx}</div>
+      </div>
+      <div class="insight-scale-wrap">
+        <div class="insight-scale-bar">
+          <div class="insight-scale-thumb" style="left:${pct.toFixed(1)}%">
+            <div class="insight-scale-val">${cda.toFixed(4)}</div>
+          </div>
+        </div>
+        <div class="insight-scale-axis">
+          <span>0.18 TT</span><span>0.26 Drops</span><span>0.36 Hoods</span><span>0.50 Upright</span>
+        </div>
+      </div>
+      <div class="insight-stats">
+        <div class="insight-stat ${conCls}">
+          <div class="is-val">${conL}</div>
+          <div class="is-lbl">Consistency (±${std.toFixed(4)} m²)</div>
+          <div class="is-note">${conNote}</div>
+        </div>
+        <div class="insight-stat ${rmCls}">
+          <div class="is-val">${rmL}</div>
+          <div class="is-lbl">Fit Quality (${rmDisp})</div>
+          <div class="is-note">${rmNote}</div>
+        </div>
+        ${windStats?`<div class="insight-stat">
+          <div class="is-val">${windStats.mean>=0?'+':''}${windStats.mean.toFixed(1)} m/s</div>
+          <div class="is-lbl">Avg Effective Tailwind</div>
+          <div class="is-note">Range ${windStats.minV.toFixed(1)} → ${windStats.maxV.toFixed(1)} m/s · vector model</div>
+        </div>`:''}
+      </div>
+      <div class="insight-cta">
+        <div class="insight-cta-body">
+          <h4>Ready to improve your CdA?</h4>
+          <p>AeroB 3D uses 3D scanning as a starting point for aerodynamic modelling, with room for later CFD-driven refinement that you can extend yourself.</p>
+        </div>
+        <a class="insight-cta-btn" href="https://aerob.app" target="_blank" rel="noopener">Try AeroB 3D →</a>
+      </div>
+    `;
+  }
+
+  // ── Presets ───────────────────────────────────────────────────
+  document.querySelectorAll('.preset').forEach(p=>{
+    p.onclick=()=>{
+      document.querySelectorAll('.preset').forEach(x=>x.classList.remove('active'));
+      p.classList.add('active');
+      $('mass').value=p.dataset.mass;$('cda').value=p.dataset.cda;$('crr').value=p.dataset.crr;
+    }
+  });
+
+  // ── Run analysis ──────────────────────────────────────────────
+  $('runBtn').onclick=async()=>{
+    if(!fitData)return;
+    // Entitlement gate: enforce free-plan monthly limit
+    if(currentUser){
+      try{
+        const check=await Plans.canRunAnalysis();
+        window.__monthlyCount=check.count;
+        if(!check.allowed){openUpgradeModal(true);return}
+      }catch(e){console.warn('entitlement check:',e)}
+    }
+    $('welcomeCard').style.display='none';
+    setStatus('info','Running CdA analysis…');
+    $('runBtn').disabled=true;
+    setTimeout(()=>{
+      try{
+        const params={massTotal:+$('mass').value,crr:+$('crr').value,cda:+$('cda').value,drivetrainLossFrac:+$('dtLoss').value};
+        const rho=+$('rho').value,smooth=+$('smooth').value;
+        const analysisRecords=buildAnalysisRecords(fitData.records);
+        // ── Vector wind: project wind onto rider heading per-sample ───────
+        const windMode=getSelectedWindMode();
+        const wx=window.__lastWeather||{};
+        let windForAnalysis=getEffectiveWind(),windStats=null;
+        if(windMode==='weather'&&wx.meanWs>0&&wx.meanWd!=null&&
+           analysisRecords.some(r=>r.heading_deg!=null)){
+          const twArr=WindEngine.buildPerSampleArray(analysisRecords,wx.meanWs,wx.meanWd);
+          analysisRecords.forEach((r,i)=>{r._tw=twArr[i]});
+          windForAnalysis=0; // encoded per-sample in _tw
+          windStats=WindEngine.analyzeTailwindArray(twArr);
+        }
+        const opts={
+          cdaBounds:[+$('cdaMin').value,+$('cdaMax').value],
+          coarseStep:+$('cdaStep').value,
+          smoothWinS:smooth,
+          alignStartS:+$('alignStart').value,
+          maxPowerW:+$('maxPwr').value,
+          minSpeedMps:+$('minSpd').value,
+          maxAccelMps2:+$('maxAcc').value,
+          maxDtFactor:+$('maxDtF').value
+        };
+        analysisState={records:analysisRecords,params:{...params},rho,windMps:windForAnalysis,opts:{...opts}};
+        lapResults=AeroEngine.fitCdaPerLap(analysisRecords,params,rho,windForAnalysis,opts);
+        lapRmseCache={};excludedLapIds.clear();currentWindStats=windStats;
+        if(lapResults.length===0){setStatus('error','No valid laps found');$('runBtn').disabled=false;return}
+        const validLaps=lapResults.filter(l=>isFinite(l.cda));
+        if(validLaps.length===0){setStatus('error','Could not fit CdA for any lap');$('runBtn').disabled=false;return}
+        updateLapTable();initLapButtons();
+        $('lapCard').style.display='';
+        updateSummaryDisplay();
+        renderCdaChart();$('cdaChartCard').style.display='';
+        const selRmse=$('rmseLapSelect'),selVe=$('veLapSelect');
+        selRmse.innerHTML='';selVe.innerHTML='';
+        for(const l of validLaps){
+          const opt=`<option value="${l.lapId}">Lap ${l.lapId} — CdA ${l.cda.toFixed(4)}</option>`;
+          selRmse.innerHTML+=opt;selVe.innerHTML+=opt;
+        }
+        selRmse.onchange=()=>renderRmseChart(+selRmse.value);
+        selVe.onchange=()=>renderVeChart(+selVe.value);
+        if(validLaps.length>0){
+          renderRmseChart(validLaps[0].lapId);$('rmseChartCard').style.display='';
+          renderVeChart(validLaps[0].lapId);$('veChartCard').style.display='';
+        }
+        $('setupMgmtCard').style.display=setups.length>0?'':'none';
+        renderSetupList();renderComparisonChart();renderCalculatorTable();
+        if(setups.length>0){$('comparisonChartCard').style.display='';$('calculatorCard').style.display='';}
+        const summary=calculateSummary();
+        if(summary){renderInsightsPanel(summary,windStats);$('insightCard').style.display='';}
+        renderBenchmarkCard();
+        updateReportButtonState();
+        // ── Persist analysis result ────────────────────────────────────────
+        if(currentUser){
+          try{
+            const rec=AnalysisStore.buildRecord({
+              username:currentUser.username,fileName:currentFileName,
+              config:{massTotal:params.massTotal,crr:params.crr,drivetrainLossFrac:params.drivetrainLossFrac,rho,windMode,windSpeedMs:windMode==='weather'?wx.meanWs:windForAnalysis,windFromDeg:windMode==='weather'?wx.meanWd:null,elevationMode:(document.querySelector('input[name="elevationMode"]:checked')||{}).value||'file'},
+              weather:window.__lastWeather||null,windStats,lapResults,summary
+            });
+            AnalysisStore.save(currentUser.id,rec).then(()=>{
+              setStatus('success',`Analysis complete — Mean CdA: ${summary.avgCda.toFixed(4)} m² · saved`);
+            }).catch(e=>{
+              console.warn('AnalysisStore.save failed:',e);
+              setStatus('warning',`Analysis complete — Mean CdA: ${summary.avgCda.toFixed(4)} m² (not saved: ${e.message})`);
+            });
+          }catch(e){
+            console.warn('AnalysisStore:',e);
+            setStatus('warning',`Analysis complete — Mean CdA: ${summary.avgCda.toFixed(4)} m² (not saved: ${e.message})`);
+          }
+        } else {
+          setStatus('success',`Analysis complete — Mean CdA: ${summary.avgCda.toFixed(4)} m²`);
+        }
+      }catch(e){setStatus('error','Analysis error: '+e.message);console.error(e)}
+      $('runBtn').disabled=false;
+    },50);
+  };
+
+  // ── Setup Management ──────────────────────────────────────────
+
+  function showAddRepeatUpload(setup){
+    const input=document.createElement('input');input.type='file';input.accept='.fit,.FIT,.gpx,.GPX';
+    input.onchange=()=>{if(input.files.length)handleFileForRepeat(input.files[0],setup)};
+    input.click();
+  }
+
+  function handleFileForRepeat(file,setup){
+    const ext=file.name.split('.').pop().toLowerCase();
+    const isFit=ext==='fit';
+    setStatus('info',`Parsing repeat ${isFit?'FIT':'GPX'} file…`);
+    const reader=new FileReader();
+    reader.onload=()=>{
+      try{
+        let newFitData;
+        if(isFit){newFitData=new FitParser().parse(reader.result);}
+        else{
+          newFitData=new GpxParser().parse(reader.result);
+          if(!newFitData.meta.hasPower){setStatus('error','Repeat GPX has no power data — cannot add laps without power');return}
+        }
+        setStatus('info','Analyzing repeat…');
+        setTimeout(()=>{
+          try{
+            const params={massTotal:+$('mass').value,crr:+$('crr').value,cda:+$('cda').value,drivetrainLossFrac:+$('dtLoss').value};
+            const rho=+$('rho').value,wind=+$('wind').value,smooth=+$('smooth').value;
+            const opts={cdaBounds:[+$('cdaMin').value,+$('cdaMax').value],coarseStep:+$('cdaStep').value,smoothWinS:smooth,alignStartS:+$('alignStart').value,maxPowerW:+$('maxPwr').value,minSpeedMps:+$('minSpd').value,maxAccelMps2:+$('maxAcc').value,maxDtFactor:+$('maxDtF').value};
+            const newLaps=AeroEngine.fitCdaPerLap(newFitData.records,params,rho,wind,opts);
+            const valid=newLaps.filter(l=>isFinite(l.cda));
+            if(valid.length===0){setStatus('error','No valid laps in repeat file');return}
+            setup.dataPoints.push(...valid.map(l=>({cda:l.cda,rmse:l.rmse,speed:l.avgSpeedKmh,lapId:l.lapId,fileName:file.name})));
+            persistSetups();
+            setStatus('success',`Added ${valid.length} lap(s) to "${setup.name}"`);
+            renderSetupList();renderComparisonChart();
+          }catch(e){setStatus('error','Repeat error: '+e.message);console.error(e)}
+        },50);
+      }catch(e){setStatus('error','Parse error: '+e.message)}
+    };
+    if(isFit)reader.readAsArrayBuffer(file);else reader.readAsText(file);
+  }
+
+  function renderSetupList(){
+    // Sync setups from window scope if needed
+    const list=$('setupList');list.innerHTML='';
+    for(const setup of setups){
+      if(setup.dataPoints.length===0)continue;
+      const stats=getSetupStats(setup);
+      const mean=stats.mean;
+      const std=stats.std;
+      const left=Math.max(0,(stats.min-0.17)/0.18*100);
+      const width=Math.max(4,((stats.max-stats.min)||0.003)/0.18*100);
+      const meanPos=Math.max(2,Math.min(98,(stats.mean-0.17)/0.18*100));
+      const lapPills=setup.dataPoints.map(p=>`<span class="setup-lap-pill">Lap ${p.lapId}${p.fileName&&p.fileName!==currentFileName?` <small>${escapeHtml(p.fileName)}</small>`:''}<button class="setup-lap-remove" data-setup-id="${setup.id}" data-lap-id="${p.lapId}" data-file="${escapeHtml(p.fileName||'')}" aria-label="Remove lap ${p.lapId} from ${escapeHtml(setup.name)}">×</button></span>`).join('');
+      const div=document.createElement('div');
+      div.className='setup-item';
+      div.innerHTML=`
+        <div class="setup-color-indicator" style="background-color:${safeCssColor(setup.color)}"></div>
+        <div class="setup-item-name editable-name" data-id="${setup.id}">${escapeHtml(setup.name)}</div>
+        <div class="setup-item-stats"><strong>${mean.toFixed(4)}</strong> ± ${std.toFixed(4)} m² · ${setup.dataPoints.length} pts</div>
+        <div style="flex:1 1 100%"><div class="setup-item-bar"><div class="setup-item-bar-fill" style="left:${left}%;width:${width}%;background:${safeCssColor(setup.color)}"></div><div class="setup-item-bar-fill" style="left:${meanPos}%;width:10px;transform:translateX(-5px);background:#0f172a"></div></div><div class="setup-item-bar-labels"><span>${stats.min.toFixed(4)}</span><span>${stats.max.toFixed(4)}</span></div><div class="setup-lap-list">${lapPills}</div></div><div class="setup-item-actions">
+          <button class="btn-primary-small add-laps" data-id="${setup.id}" style="padding:5px 10px;font-size:11px">+ Add laps</button>
+          <button class="btn-danger-small del-setup" data-id="${setup.id}">Delete</button>
+        </div>
+      `;
+      const nameEl=div.querySelector('.editable-name');
+      nameEl.onclick=()=>{
+        if(nameEl.classList.contains('editing'))return;
+        nameEl.classList.add('editing');
+        const inp=document.createElement('input');inp.type='text';inp.value=setup.name;inp.style.fontSize='14px';
+        inp.onblur=()=>{const n=inp.value.trim();if(n&&n!==setup.name){setup.name=n;persistSetups()}nameEl.classList.remove('editing');nameEl.textContent=setup.name};
+        inp.onkeydown=ke=>{if(ke.key==='Enter')inp.onblur();if(ke.key==='Escape'){nameEl.classList.remove('editing');nameEl.textContent=setup.name}};
+        nameEl.textContent='';nameEl.appendChild(inp);inp.focus();inp.select();
+      };
+      div.querySelector('.add-laps').onclick=()=>openSetupModal(setup.id);
+      div.querySelectorAll('.setup-lap-remove').forEach(btn=>btn.onclick=()=>{
+        const fileName=btn.dataset.file||'';
+        setup.dataPoints=setup.dataPoints.filter(p=>!(p.lapId===+btn.dataset.lapId&&p.fileName===fileName));
+        persistSetups();
+        renderSetupList();renderComparisonChart();renderCalculatorTable();updateLapTable();
+        if(!setups.some(s=>s.dataPoints.length>0)){$('setupMgmtCard').style.display='none';$('comparisonChartCard').style.display='none';$('calculatorCard').style.display='none'}
+        setStatus('success',`Removed lap ${btn.dataset.lapId} from "${setup.name}"`);
+      });
+      div.querySelector('.del-setup').onclick=()=>{
+        setups=setups.filter(s=>s.id!==setup.id);persistSetups();
+        renderSetupList();renderComparisonChart();renderCalculatorTable();updateLapTable();
+        if(setups.length===0){$('setupMgmtCard').style.display='none';$('comparisonChartCard').style.display='none';$('calculatorCard').style.display='none'}
+      };
+      list.appendChild(div);
+    }
+  }
+
+  // ── Charts ────────────────────────────────────────────────────
+  function renderCdaChart(){
+    if(cdaChartInst)cdaChartInst.destroy();
+    const valid=getIncludedValidLaps();if(valid.length===0)return;
+    const avg=valid.reduce((s,l)=>s+l.cda,0)/valid.length;
+    cdaChartInst=new Chart($('cdaChart'),{type:'bar',data:{
+      labels:valid.map(l=>'Lap '+l.lapId),
+      datasets:[
+        {label:'CdA (m²)',data:valid.map(l=>l.cda),backgroundColor:'rgba(31,59,136,0.7)',borderColor:'#1f3b88',borderWidth:1,borderRadius:4},
+        {label:'Mean',data:valid.map(()=>avg),type:'line',borderColor:'#ffa500',borderWidth:2,borderDash:[6,4],pointRadius:0,fill:false}
+      ]
+    },options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{position:'bottom'}},scales:{y:{title:{display:true,text:'CdA (m²)'},beginAtZero:false}}}});
+  }
+
+  function renderRmseChart(lapId){
+    if(rmseChartInst)rmseChartInst.destroy();
+    if(!analysisState||!lapResults)return;
+    const params=analysisState.params,rho=analysisState.rho,wind=analysisState.windMps,opts=analysisState.opts;
+    const lapData=analysisState.records.filter(r=>r.lap_id===lapId);
+    const{data:filtered}=AeroEngine.prefilterLap(lapData,opts);
+    if(filtered.length<10)return;
+    const bestFit=lapResults.find(l=>l.lapId===lapId);
+    const curve=AeroEngine.rmseVsCda(filtered,params,rho,wind,{...opts,curveStep:0.002,includeCda:bestFit?.cda});
+    const bestPointData=curve.cdaValues.map((c,i)=>bestFit&&Math.abs(c-bestFit.cda)<1e-6?curve.rmseValues[i]:null);
+    rmseChartInst=new Chart($('rmseChart'),{type:'line',data:{
+      labels:curve.cdaValues.map(c=>c.toFixed(3)),
+      datasets:[
+        {label:'Raw RMSE (m)',data:curve.rmseValues,borderColor:'#1f3b88',backgroundColor:'rgba(31,59,136,0.1)',fill:true,pointRadius:0,borderWidth:2,tension:.3},
+        {label:'Best fit',data:bestPointData,borderColor:'#ffa500',backgroundColor:'#ffa500',fill:false,showLine:false,pointRadius:5,pointHoverRadius:6}
+      ]
+    },options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{x:{title:{display:true,text:'CdA (m²)'}},y:{title:{display:true,text:'Raw RMSE (m) — sensitivity curve only'}}}}});
+  }
+
+  function renderVeChart(lapId){
+    if(veChartInst)veChartInst.destroy();
+    if(!analysisState)return;
+    const params=analysisState.params,rho=analysisState.rho,wind=analysisState.windMps,opts=analysisState.opts;
+    const lapData=analysisState.records.filter(r=>r.lap_id===lapId);
+    const{data:filtered}=AeroEngine.prefilterLap(lapData,opts);
+    if(filtered.length<10)return;
+    const bestCda=lapResults.find(l=>l.lapId===lapId)?.cda||+$('cda').value;
+    const timeS=filtered.map(d=>d.time_s),speedMps=filtered.map(d=>d.speed_mps),powerW=filtered.map(d=>d.power_w),altM=filtered.map(d=>d.alt_m);
+    const effectiveWind=filtered.some(d=>Number.isFinite(d._tw))?filtered.map(d=>Number.isFinite(d._tw)?d._tw:wind):wind;
+    const precomp=AeroEngine.vePrecompute({massTotal:params.massTotal,rho,crr:params.crr,drivetrainLossFrac:params.drivetrainLossFrac,timeS,speedMps,powerW,windMps:effectiveWind});
+    const ve=AeroEngine.powerBalanceVE({massTotal:params.massTotal,rho,cda:bestCda,crr:params.crr,drivetrainLossFrac:params.drivetrainLossFrac,timeS,speedMps,powerW,windMps:effectiveWind});
+    const veS=AeroEngine.smoothSeries(ve,opts.smoothWinS,precomp.dtMed);
+    const altS=AeroEngine.smoothSeries(new Float64Array(altM),opts.smoothWinS,precomp.dtMed);
+    const t0=timeS[0],pct10=(timeS[timeS.length-1]-t0)*0.1,aS=Math.max(opts.alignStartS||5,pct10);
+    const diffs=[];for(let i=0;i<timeS.length;i++)if(timeS[i]-t0<=aS&&isFinite(altS[i])&&isFinite(veS[i]))diffs.push(altS[i]-veS[i]);
+    const offset=diffs.length?diffs.sort((a,b)=>a-b)[Math.floor(diffs.length/2)]:0;
+    const veAligned=Array.from(veS).map(v=>v+offset);
+    const tRel=timeS.map(t=>t-t0);
+    veChartInst=new Chart($('veChart'),{type:'line',data:{
+      labels:tRel.map(t=>t.toFixed(0)),
+      datasets:[
+        {label:'Measured Altitude',data:Array.from(altS),borderColor:'#1f3b88',backgroundColor:'rgba(31,59,136,0.08)',fill:true,pointRadius:0,borderWidth:2},
+        {label:`Virtual Elev (CdA=${bestCda.toFixed(4)})`,data:veAligned,borderColor:'#ffa500',borderDash:[4,2],pointRadius:0,borderWidth:2,fill:false}
+      ]
+    },options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{position:'bottom'}},scales:{x:{title:{display:true,text:'Time (s)'},ticks:{maxTicksLimit:15}},y:{title:{display:true,text:'Elevation (m)'}}}}});
+  }
+
+  function _boxStats(vals){
+    const s=[...vals].sort((a,b)=>a-b),n=s.length;
+    if(n===0)return null;
+    if(n===1)return{q1:s[0],median:s[0],q3:s[0],wLow:s[0],wHigh:s[0],outliers:[],mean:s[0]};
+    const q=p=>{const i=p*(n-1),lo=Math.floor(i);return s[lo]+(i-lo)*((s[lo+1]??s[lo])-s[lo])};
+    const q1=q(0.25),median=q(0.5),q3=q(0.75),iqr=q3-q1;
+    const wLow=Math.max(s[0],q1-1.5*iqr),wHigh=Math.min(s[n-1],q3+1.5*iqr);
+    const outliers=s.filter(v=>v<wLow||v>wHigh);
+    const mean=s.reduce((a,b)=>a+b,0)/n;
+    return{q1,median,q3,wLow,wHigh,outliers,mean};
+  }
+
+  function renderComparisonChart(){
+    if(comparisonChartInst)comparisonChartInst.destroy();
+    if(setups.length===0)return;
+    const boxData=[];
+    for(const setup of setups){
+      const cdas=setup.dataPoints.map(p=>p.cda).filter(Number.isFinite);
+      if(!cdas.length)continue;
+      const stats=_boxStats(cdas);
+      if(!stats)continue;
+      boxData.push({name:setup.name,color:setup.color,stats,n:cdas.length});
+    }
+    if(!boxData.length)return;
+
+    const allVals=boxData.flatMap(d=>[d.stats.wLow,...d.stats.outliers,d.stats.wHigh]);
+    const xMin=Math.max(0.10,Math.min(...allVals)-0.008);
+    const xMax=Math.min(0.65,Math.max(...allVals)+0.008);
+    $('comparisonChart').parentElement.style.height=Math.max(200,boxData.length*80+80)+'px';
+
+    const boxPlugin={
+      id:'boxPlot',
+      afterDatasetsDraw(chart){
+        const{ctx,scales:{x:xs}}=chart;
+        chart.getDatasetMeta(0).data.forEach((bar,idx)=>{
+          if(idx>=boxData.length)return;
+          const{stats,color}=boxData[idx];
+          const yc=bar.y,bh=22;
+          ctx.save();
+          // Whisker spine
+          const wLx=xs.getPixelForValue(stats.wLow),wHx=xs.getPixelForValue(stats.wHigh);
+          ctx.strokeStyle=color;ctx.lineWidth=1.5;
+          ctx.beginPath();ctx.moveTo(wLx,yc);ctx.lineTo(wHx,yc);ctx.stroke();
+          // Whisker end caps
+          [wLx,wHx].forEach(wx=>{
+            ctx.beginPath();ctx.moveTo(wx,yc-bh/2);ctx.lineTo(wx,yc+bh/2);ctx.stroke();
+          });
+          // IQR box fill
+          const q1x=xs.getPixelForValue(stats.q1),q3x=xs.getPixelForValue(stats.q3);
+          const boxW=Math.max(q3x-q1x,2);
+          ctx.fillStyle=color+'2a';ctx.strokeStyle=color;ctx.lineWidth=2;
+          ctx.beginPath();ctx.rect(q1x,yc-bh/2,boxW,bh);ctx.fill();ctx.stroke();
+          // Median line
+          const mx=xs.getPixelForValue(stats.median);
+          ctx.strokeStyle=color;ctx.lineWidth=3;
+          ctx.beginPath();ctx.moveTo(mx,yc-bh/2);ctx.lineTo(mx,yc+bh/2);ctx.stroke();
+          // Outlier dots
+          stats.outliers.forEach(v=>{
+            ctx.fillStyle=color;
+            ctx.beginPath();ctx.arc(xs.getPixelForValue(v),yc,3.5,0,Math.PI*2);ctx.fill();
+          });
+          ctx.restore();
+        });
+      }
+    };
+
+    comparisonChartInst=new Chart($('comparisonChart'),{
+      type:'bar',
+      plugins:[boxPlugin],
+      data:{
+        labels:boxData.map(d=>d.name),
+        datasets:[{
+          data:boxData.map(d=>d.stats.median),
+          backgroundColor:'transparent',
+          borderColor:'transparent',
+          borderWidth:0,
+          barThickness:22
+        }]
+      },
+      options:{
+        indexAxis:'y',responsive:true,maintainAspectRatio:false,
+        layout:{padding:{right:16}},
+        clip:false,
+        plugins:{
+          legend:{display:false},
+          tooltip:{
+            callbacks:{
+              title:ctx=>boxData[ctx[0].dataIndex]?.name||'',
+              label:ctx=>{
+                const d=boxData[ctx.dataIndex];if(!d)return'';
+                const st=d.stats,f=v=>v.toFixed(4);
+                const lines=[
+                  `n = ${d.n} lap(s)`,
+                  `Median ${f(st.median)} m²`,
+                  `IQR ${f(st.q1)} – ${f(st.q3)}`,
+                  `Range ${f(st.wLow)} – ${f(st.wHigh)}`
+                ];
+                if(st.outliers.length)lines.push(`Outliers: ${st.outliers.map(f).join(', ')}`);
+                return lines;
+              }
+            }
+          }
+        },
+        scales:{x:{title:{display:true,text:'CdA (m²)'},min:xMin,max:xMax}}
+      }
+    });
+  }
+
+  function solveSteadyStateSpeed({cda,powerW,gradientPct,windMps,rho,massTotal,crr,drivetrainLossFrac}){
+    const g=9.80665,grade=gradientPct/100,wheelPower=Math.max(1,powerW*(1-drivetrainLossFrac));
+    let lo=0.5,hi=35;
+    for(let i=0;i<70;i++){
+      const v=(lo+hi)/2;
+      const vAir=Math.max(0,v-windMps);
+      const aero=0.5*rho*cda*vAir*vAir;
+      const roll=massTotal*g*crr;
+      const slope=massTotal*g*grade;
+      const required=(aero+roll+slope)*v;
+      if(required>wheelPower)hi=v;else lo=v;
+    }
+    return (lo+hi)/2;
+  }
+
+  function renderCalculatorTable(){
+    const body=$('calcBody');
+    if(!body)return;
+    if(setups.length===0){body.innerHTML='';return}
+    const powerW=+$('calcPower').value||300,gradientPct=+$('calcGradient').value||0,distanceKm=+$('calcDistance').value||10,windMps=+$('calcWind').value||0,rho=+$('rho').value||1.205,massTotal=+$('mass').value||82,crr=+$('crr').value||0.004,drivetrainLossFrac=+$('dtLoss').value||0.03;
+    const rows=setups.filter(s=>s.dataPoints.length>0).map(setup=>{
+      const stats=getSetupStats(setup);
+      const speed=solveSteadyStateSpeed({cda:stats.mean,powerW,gradientPct,windMps,rho,massTotal,crr,drivetrainLossFrac});
+      const timeS=(distanceKm*1000)/Math.max(speed,0.1);
+      return{setup:setup.name,cda:stats.mean,speedKmh:speed*3.6,timeS};
+    }).sort((a,b)=>a.timeS-b.timeS);
+    const best=rows[0]?.timeS||0;
+    body.innerHTML=rows.map(r=>`<tr><td>${escapeHtml(r.setup)}</td><td>${r.cda.toFixed(4)}</td><td>${r.speedKmh.toFixed(2)} km/h</td><td>${formatDuration(r.timeS)}</td><td>${formatDeltaSeconds(r.timeS-best)}</td></tr>`).join('');
+  }
+
+  ['calcPower','calcGradient','calcDistance','calcWind','mass','rho','crr','dtLoss'].forEach(id=>$(id)?.addEventListener('input',()=>renderCalculatorTable()));
+
+  $('reportBtn').onclick=()=>{
+    if(!lapResults||!fitData)return;
+    const summary=calculateSummary();
+    const assumptions=`Terrain: ${(document.querySelector('input[name="elevationMode"]:checked')||{}).value||'file'} · Wind: ${getSelectedWindMode()} (${getEffectiveWind().toFixed(1)} m/s)`;
+    const rows=getIncludedLaps().map(l=>`<tr><td>${l.lapId}</td><td>${isFinite(l.cda)?l.cda.toFixed(4):'—'}</td><td>${l.avgSpeedKmh.toFixed(1)} km/h</td><td>${Number.isFinite(l.avgPowerW)?l.avgPowerW.toFixed(0):'—'}</td><td>${Number.isFinite(l.avgHeartRateBpm)?l.avgHeartRateBpm.toFixed(0):'—'}</td></tr>`).join('');
+    const setupsHtml=setups.filter(s=>s.dataPoints.length>0).map(s=>{const st=getSetupStats(s);return `<li><strong>${s.name}</strong>: ${st.mean.toFixed(4)} ± ${st.std.toFixed(4)} m² (${st.count} laps)</li>`}).join('');
+    const win=window.open('','_blank','width=980,height=760');
+    win.document.write(`<!DOCTYPE html><html><head><title>AeroBestimation Report</title><style>body{font-family:Segoe UI,sans-serif;padding:28px;color:#1a2236}h1,h2{color:#1f3b88}table{width:100%;border-collapse:collapse;margin-top:12px}th,td{border:1px solid #d0d7e3;padding:8px;text-align:left}th{background:#f0f6ff}.grid{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}.metric{border:1px solid #d0d7e3;border-radius:10px;padding:12px;background:#fafbfd}</style></head><body><h1>AeroBestimation Report</h1><p><strong>File:</strong> ${currentFileName}</p><p><strong>Assumptions:</strong> ${assumptions}</p><div class="grid"><div class="metric"><strong>Mean CdA</strong><div>${summary.avgCda.toFixed(4)} m²</div></div><div class="metric"><strong>Avg Speed</strong><div>${summary.avgSpd.toFixed(1)} km/h</div></div><div class="metric"><strong>Avg Power</strong><div>${Number.isFinite(summary.avgPwr)?summary.avgPwr.toFixed(0):'—'} W</div></div></div><h2>Setups</h2><ul>${setupsHtml||'<li>No setups saved yet.</li>'}</ul><h2>Lap Details</h2><table><thead><tr><th>Lap</th><th>CdA</th><th>Avg Speed</th><th>Avg Power</th><th>Avg HR</th></tr></thead><tbody>${rows}</tbody></table></body></html>`);
+    win.document.close();
+    win.focus();
+  };
+
+  function setStatus(type,msg){const el=$('status');el.className='status '+type;el.textContent=msg}
+
+  window.clearCurrentAnalysis=function(){
+    if(fitData||lapResults){
+      if(!confirm('Clear the current analysis and return to the empty state?'))return;
+    }
+    // Clear all analysis state
+    fitData=null;lapResults=null;analysisState=null;lapRmseCache={};
+    excludedLapIds.clear();currentWindStats=null;currentFileName='';
+    window.__lastWeather=null;
+    // Destroy chart instances
+    if(cdaChartInst){cdaChartInst.destroy();cdaChartInst=null}
+    if(rmseChartInst){rmseChartInst.destroy();rmseChartInst=null}
+    if(veChartInst){veChartInst.destroy();veChartInst=null}
+    // Reset file label
+    const fn=$('fileName');fn.textContent='';fn.classList.add('hidden');
+    // Reset UI cards
+    $('welcomeCard').style.display='';
+    ['summaryCard','insightCard','benchmarkCard','lapCard','mapCard',
+     'cdaChartCard','rmseChartCard','veChartCard','weatherCard',
+     'setupMgmtCard','comparisonChartCard','calculatorCard'].forEach(id=>{
+      const el=document.getElementById(id);if(el)el.style.display='none';
+    });
+    $('runBtn').disabled=true;
+    $('clearAnalysisBar').style.display='none';
+    const st=$('status');if(st){st.textContent='';st.className='status'}
+    updateReportButtonState();
+  };
+
+  // Expose setups to outer scope for auth functions
+  // Auth showApp loads setups and assigns via __setSetups; keep in sync
+  const _origShowApp=window.showApp;
+  window.showApp=async function(session){
+    _origShowApp(session);
+    setups=await Auth.loadSetups(session.id);
+    if(setups.length>0){renderSetupList();renderComparisonChart();renderCalculatorTable();$('setupMgmtCard').style.display='';$('comparisonChartCard').style.display='';$('calculatorCard').style.display=''}
+    $('historyBtn').style.display='';  // show History button once logged in
+  };
+  // Also patch logout to reset setups
+  const _origLogout=window.doLogout;
+  window.doLogout=function(){setups=[];$('historyBtn').style.display='none';$('clearAnalysisBar').style.display='none';_origLogout();updateReportButtonState()};
+
+  // ── Analysis History ──────────────────────────────────────────
+  window.openHistoryPanel=async function(){
+    $('historyOverlay').classList.add('open');
+    $('historyBody').innerHTML='<div class="history-loading"><span class="spin" style="display:inline-block;width:16px;height:16px;border:2px solid var(--border);border-top-color:var(--blue);border-radius:50%;animation:spin .7s linear infinite;vertical-align:middle;margin-right:8px"></span>Loading…</div>';
+    if(!currentUser){$('historyBody').innerHTML='<div class="history-empty">Sign in to view your saved analyses.</div>';return}
+    try{
+      const records=await AnalysisStore.loadAll(currentUser.id);
+      renderHistoryList(records);
+    }catch(e){
+      $('historyBody').innerHTML=`<div class="history-empty">Could not load analyses: ${escapeHtml(e.message)}</div>`;
+    }
+  };
+
+  window.closeHistoryPanel=function(){
+    $('historyOverlay').classList.remove('open');
+  };
+
+  function renderHistoryList(records){
+    const body=$('historyBody');
+    if(!records||records.length===0){body.innerHTML='<div class="history-empty">No saved analyses yet.<br><small>Run an analysis and it will appear here.</small></div>';return}
+    body.innerHTML='';
+    for(const rec of records){
+      const date=new Date(rec.createdAt).toLocaleString(undefined,{dateStyle:'medium',timeStyle:'short'});
+      const fileName=rec.source?.fileName||'Unknown file';
+      const avgCda=rec.summary?.avgCda!=null?rec.summary.avgCda.toFixed(4)+' m²':'—';
+      const validLaps=rec.summary?.validLaps??rec.laps?.length??'—';
+      const windMode=rec.config?.windMode||'—';
+      const elevMode=rec.config?.elevationMode||'—';
+      // Show avgNrmse if stored, otherwise avgRmse
+      const fitQual=rec.summary?.avgNrmse!=null
+        ?`NRMSE ${(rec.summary.avgNrmse*100).toFixed(1)}%`
+        :rec.summary?.avgRmse!=null?`RMSE ${rec.summary.avgRmse.toFixed(3)} m`:'';
+
+      const row=document.createElement('div');
+      row.className='history-row';
+      row.innerHTML=`
+        <div class="history-row-main">
+          <div class="history-row-title">${escapeHtml(fileName)}</div>
+          <div class="history-row-meta">${date} · <strong>CdA ${avgCda}</strong> · ${validLaps} valid lap(s) · wind: ${windMode} · elev: ${elevMode}${fitQual?' · '+fitQual:''}</div>
+        </div>
+        <div class="history-row-actions">
+          <button class="btn-primary-small restore-btn" style="font-size:11px;padding:6px 12px">Open</button>
+          <button class="btn-danger-small delete-btn" style="font-size:11px;padding:6px 10px">Delete</button>
+        </div>
+      `;
+      row.querySelector('.restore-btn').onclick=()=>restoreAnalysis(rec);
+      row.querySelector('.delete-btn').onclick=()=>deleteHistoryRecord(rec.id,row);
+      body.appendChild(row);
+    }
+  }
+
+  function restoreAnalysis(record){
+    closeHistoryPanel();
+    // Reset state — no raw ride records available from a saved analysis snapshot
+    fitData=null;
+    analysisState=null;
+    lapRmseCache={};
+    excludedLapIds.clear();
+    currentWindStats=record.windStats||null;
+    currentFileName=record.source?.fileName||'Analysis';
+
+    // Reconstruct lap results from stored data.
+    // Old records may lack nrmse — fall back gracefully to null.
+    lapResults=(record.laps||[]).map(l=>({
+      lapId:         l.lapId,
+      cda:           l.cda,
+      rmse:          l.rmse,
+      nrmse:         l.nrmse??null,   // null for records saved before NRMSE was added
+      durationS:     l.durationS,
+      avgSpeedKmh:   l.avgSpeedKmh,
+      avgPowerW:     l.avgPowerW,
+      avgHeartRateBpm:l.avgHeartRateBpm,
+      nSamples:      0,               // raw ride data not stored
+      pctKept:       100,
+      quality:       l.quality||{score:0,label:'Unreliable'}
+    }));
+
+    if(lapResults.length===0){setStatus('error','No lap data in this analysis');return}
+
+    // Show filename in dropzone
+    const fn=$('fileName');fn.textContent=currentFileName+' (from history)';fn.classList.remove('hidden');
+    $('welcomeCard').style.display='none';
+    $('clearAnalysisBar').style.display='';
+
+    // Populate UI
+    updateLapTable();initLapButtons();
+    $('lapCard').style.display='';
+    updateSummaryDisplay();
+
+    // CdA chart reconstructs from lap results alone
+    renderCdaChart();$('cdaChartCard').style.display='';
+
+    // RMSE-vs-CdA and VE charts need raw sample data — not available in saved snapshot
+    $('rmseChartCard').style.display='none';
+    $('veChartCard').style.display='none';
+
+    // Map needs GPS records — not available in saved snapshot
+    $('mapCard').style.display='none';
+
+    // Restore weather card if weather was stored
+    if(record.weather){
+      window.__lastWeather={
+        source:   record.weather.source||'archive',
+        meanTemp: record.weather.tempC,
+        meanRh:   record.weather.humidityPct,
+        meanP:    record.weather.pressureHpa,
+        meanWs:   record.weather.windSpeedMs,
+        meanWd:   record.weather.windFromDeg,
+        rho:      record.weather.rho,
+        n:        1
+      };
+      showWeatherCard(window.__lastWeather);
+      $('weatherCard').style.display='';
+    }
+
+    // Repopulate key config fields from stored config
+    if(record.config){
+      if(record.config.massTotal)$('mass').value=record.config.massTotal;
+      if(record.config.crr)$('crr').value=record.config.crr;
+      if(record.config.rho){$('rho').value=record.config.rho;updateRhoBadge('restored')}
+    }
+
+    // Summary + insights
+    const summary=calculateSummary();
+    if(summary){
+      renderInsightsPanel(summary,currentWindStats);
+      $('insightCard').style.display='';
+    }
+    renderBenchmarkCard();
+    updateReportButtonState();
+
+    const dateStr=new Date(record.createdAt).toLocaleDateString();
+    setStatus('info',`Opened analysis from ${dateStr} · Re-upload the original file to access RMSE/VE charts`);
+  }
+
+  async function deleteHistoryRecord(id,rowEl){
+    if(!confirm('Delete this analysis? This cannot be undone.'))return;
+    rowEl.style.opacity='0.4';rowEl.style.pointerEvents='none';
+    const ok=await AnalysisStore.deleteRecord(id);
+    if(ok)rowEl.remove();
+    else{rowEl.style.opacity='';rowEl.style.pointerEvents='';alert('Delete failed — please try again.')}
+  }
+
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AeroB — Performance Analysis Platform</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+<script src="/platform.js"></script>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --blue:#1f3b88;--blue-light:#2a4fad;--blue-dark:#142960;
+  --orange:#ffa500;--orange-light:#ffb733;
+  --bg:#f0f2f7;--card:#fff;--border:#d0d7e3;
+  --text:#1a2236;--sub:#5a6880;
+  --radius:10px;--shadow:0 2px 12px rgba(31,59,136,.08);
+}
+body{font-family:"Segoe UI","Inter",system-ui,sans-serif;background:var(--bg);color:var(--text);min-height:100vh}
+
+/* ── Header ─────────────────────────────────────────── */
+.header{background:var(--blue);color:#fff;padding:16px 32px;display:flex;align-items:center;gap:16px;box-shadow:0 2px 8px rgba(0,0,0,.15)}
+.header h1{font-size:22px;font-weight:700;letter-spacing:.5px}
+.header h1 span{color:var(--orange)}
+.header-spacer{flex:1}
+.user-badge{display:flex;align-items:center;gap:10px;background:rgba(255,255,255,.12);padding:6px 14px;border-radius:20px;flex-shrink:0}
+.user-badge span{font-size:13px;font-weight:600}
+.user-badge button{background:rgba(255,255,255,.18);border:1px solid rgba(255,255,255,.3);color:#fff;padding:4px 12px;border-radius:12px;font-size:12px;cursor:pointer;transition:all .2s}
+.user-badge button:hover{background:rgba(255,255,255,.3)}
+
+/* ── Layout ─────────────────────────────────────────── */
+.container{max-width:1100px;margin:0 auto;padding:40px 24px}
+
+/* ── Hero ───────────────────────────────────────────── */
+.portal-hero{text-align:center;margin-bottom:48px}
+.portal-hero h2{font-size:30px;font-weight:800;color:var(--blue);margin-bottom:10px}
+.portal-hero h2 span{color:var(--orange)}
+.portal-hero p{font-size:15px;color:var(--sub);max-width:560px;margin:0 auto;line-height:1.7}
+.portal-greeting{font-size:14px;color:var(--sub);margin-bottom:6px;font-weight:600}
+
+/* ── Tool grid ──────────────────────────────────────── */
+.tools-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:24px;margin-bottom:48px}
+.tool-card{background:var(--card);border-radius:14px;border:1px solid var(--border);box-shadow:var(--shadow);padding:28px;cursor:pointer;transition:all .2s;text-decoration:none;color:inherit;display:flex;flex-direction:column}
+.tool-card:hover{border-color:var(--blue);box-shadow:0 6px 24px rgba(31,59,136,.14);transform:translateY(-2px)}
+.tool-card-icon{font-size:36px;margin-bottom:14px}
+.tool-card h3{font-size:18px;font-weight:800;color:var(--blue);margin-bottom:8px}
+.tool-card p{font-size:13px;color:var(--sub);line-height:1.6;flex:1;margin-bottom:18px}
+.tool-card-cta{display:inline-flex;align-items:center;gap:6px;font-size:13px;font-weight:700;color:var(--blue);border:1.5px solid var(--border);border-radius:8px;padding:8px 16px;width:fit-content;transition:all .2s}
+.tool-card:hover .tool-card-cta{background:var(--blue);color:#fff;border-color:var(--blue)}
+.tool-card.featured .tool-card-cta{background:var(--orange);color:var(--blue-dark);border-color:var(--orange)}
+.tool-card.featured:hover .tool-card-cta{background:var(--orange-light);border-color:var(--orange-light)}
+.tool-badge{display:inline-block;font-size:10px;background:#e0f2fe;color:#075985;border-radius:10px;padding:2px 8px;font-weight:700;margin-left:8px;vertical-align:middle;text-transform:uppercase;letter-spacing:.3px}
+
+/* ── Platform info bar ──────────────────────────────── */
+.info-bar{background:var(--card);border-radius:var(--radius);border:1px solid var(--border);padding:18px 24px;display:flex;align-items:center;gap:20px;flex-wrap:wrap}
+.info-bar-item{display:flex;align-items:center;gap:8px;font-size:13px;color:var(--sub)}
+.info-bar-item strong{color:var(--text)}
+.info-bar-sep{color:var(--border);font-size:18px}
+
+/* ── Footer ─────────────────────────────────────────── */
+.footer{text-align:center;padding:32px 24px;font-size:12px;color:var(--sub)}
+.footer a{color:var(--blue)}
+
+.hidden{display:none!important}
+</style>
+</head>
+<body>
+
+<!-- ── Header ──────────────────────────────────────── -->
+<div class="header">
+  <img src="/Logo.png" alt="AeroB" style="height:40px;width:auto;filter:brightness(0) invert(1)">
+  <h1>Aero<span>B</span></h1>
+  <div class="header-spacer"></div>
+  <div class="user-badge hidden" id="userBadge">
+    <span id="userDisplay">—</span>
+    <button onclick="handleLogout()">Sign Out</button>
+  </div>
+</div>
+
+<!-- ── Main ────────────────────────────────────────── -->
+<div class="container">
+
+  <div class="portal-hero">
+    <p class="portal-greeting hidden" id="greeting">Welcome back!</p>
+    <h2>Aero<span>B</span> Platform</h2>
+    <p>Professional performance analysis tools for cyclists and triathletes. One account, all tools.</p>
+  </div>
+
+  <div class="tools-grid">
+
+    <a class="tool-card featured" href="/estimation">
+      <div class="tool-card-icon">📐</div>
+      <h3>CdA Estimator</h3>
+      <p>Upload a <strong>.FIT</strong> or <strong>.GPX</strong> field-test file. The Virtual Elevation engine estimates your aerodynamic drag coefficient (CdA) per lap, with setup comparison and peer benchmarks.</p>
+      <div class="tool-card-cta">Open CdA Estimator →</div>
+    </a>
+
+    <a class="tool-card" href="/raceview">
+      <div class="tool-card-icon">🏔️</div>
+      <h3>RaceView <span class="tool-badge">Beta</span></h3>
+      <p>Upload a <strong>.GPX</strong> course file and ride through it with forward-facing Street View imagery — overlaid with distance, gradient, and a real-time progress bar.</p>
+      <div class="tool-card-cta">Open RaceView →</div>
+    </a>
+
+  </div>
+
+  <div class="info-bar hidden" id="infoBar">
+    <div class="info-bar-item">🔒 <span><strong>Row-level security</strong> — only you can see your data</span></div>
+    <div class="info-bar-sep">·</div>
+    <div class="info-bar-item">☁️ <span><strong>Cloud sync</strong> — available on any device</span></div>
+    <div class="info-bar-sep">·</div>
+    <div class="info-bar-item">🚀 <span><strong>More tools</strong> coming soon</span></div>
+  </div>
+
+</div>
+
+<div class="footer">AeroB Platform · <a href="https://aerob.be">aerob.be</a></div>
+
+<script>
+function showPortal(user) {
+  document.getElementById('userBadge').classList.remove('hidden');
+  document.getElementById('userDisplay').textContent = '👤 ' + (user.displayName || user.email);
+  const greet = document.getElementById('greeting');
+  greet.textContent = 'Welcome back, ' + (user.displayName || user.email.split('@')[0]) + '!';
+  greet.classList.remove('hidden');
+  document.getElementById('infoBar').classList.remove('hidden');
+}
+
+async function handleLogout() {
+  await doLogout();
+  document.getElementById('userBadge').classList.add('hidden');
+  document.getElementById('greeting').classList.add('hidden');
+  document.getElementById('infoBar').classList.add('hidden');
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+  AeroBPlatform.init('portal', { onReady: showPortal });
+});
+</script>
+</body>
+</html>

@@ -1,0 +1,825 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>RaceView — Course Preview</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+<script src="/platform.js"></script>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<style>
+/* ── Reset & Variables ─────────────────────────────────────────── */
+*{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --blue:#1f3b88;--blue-light:#2a4fad;--blue-dark:#142960;
+  --orange:#ffa500;--orange-light:#ffb733;--orange-dark:#cc8400;
+  --bg:#f0f2f7;--card:#fff;--border:#d0d7e3;
+  --text:#1a2236;--sub:#5a6880;--mono:"Consolas","Monaco",monospace;
+  --radius:10px;--shadow:0 2px 12px rgba(31,59,136,.08);
+}
+body{font-family:"Segoe UI","Inter",system-ui,sans-serif;background:var(--bg);color:var(--text);min-height:100vh}
+a{color:var(--blue)}
+
+/* ── Header ────────────────────────────────────────────────────── */
+.header{background:var(--blue);color:#fff;padding:16px 32px;display:flex;align-items:center;gap:16px;box-shadow:0 2px 8px rgba(0,0,0,.15)}
+.header h1{font-size:22px;font-weight:700;letter-spacing:.5px}
+.header h1 span{color:var(--orange)}
+.header .tag{font-size:11px;background:var(--orange);color:var(--blue-dark);padding:2px 8px;border-radius:12px;font-weight:700;margin-left:8px}
+.header-spacer{flex:1}
+.user-badge{display:flex;align-items:center;gap:10px;background:rgba(255,255,255,.12);padding:6px 14px;border-radius:20px;flex-shrink:0}
+.user-badge span{font-size:13px;font-weight:600}
+.user-badge button{background:rgba(255,255,255,.18);border:1px solid rgba(255,255,255,.3);color:#fff;padding:4px 12px;border-radius:12px;font-size:12px;cursor:pointer;transition:all .2s}
+.user-badge button:hover{background:rgba(255,255,255,.3)}
+.header-nav{display:flex;gap:6px}
+.header-nav a{font-size:12px;color:rgba(255,255,255,.7);text-decoration:none;padding:4px 10px;border-radius:10px;transition:all .2s}
+.header-nav a:hover{background:rgba(255,255,255,.12);color:#fff}
+
+/* ── Layout ────────────────────────────────────────────────────── */
+.container{max-width:1400px;margin:0 auto;padding:24px}
+.grid{display:grid;grid-template-columns:320px 1fr;gap:24px;align-items:start}
+@media(max-width:900px){.grid{grid-template-columns:1fr}}
+
+/* ── Cards ─────────────────────────────────────────────────────── */
+.card{background:var(--card);border-radius:var(--radius);border:1px solid var(--border);box-shadow:var(--shadow);padding:20px;margin-bottom:20px}
+.card h2{font-size:15px;color:var(--blue);margin-bottom:14px;display:flex;align-items:center;gap:8px}
+
+/* ── Form Controls ─────────────────────────────────────────────── */
+label{display:block;font-size:12px;font-weight:600;color:var(--sub);margin-bottom:4px;text-transform:uppercase;letter-spacing:.5px}
+input[type="range"]{width:100%;accent-color:var(--blue)}
+.field{margin-bottom:12px}
+.field small{color:var(--sub);font-size:11px;margin-top:3px;display:block;line-height:1.45}
+
+/* ── Drop zone ─────────────────────────────────────────────────── */
+.dropzone{border:2px dashed var(--border);border-radius:var(--radius);padding:36px 20px;text-align:center;cursor:pointer;transition:all .25s;background:#fafbfd}
+.dropzone:hover,.dropzone.drag-over{border-color:var(--orange);background:#fff8ee}
+.dropzone .dz-icon{font-size:36px;margin-bottom:8px}
+.dropzone p{font-size:14px;color:var(--sub)}
+.dropzone .filename{font-size:13px;color:var(--blue);font-weight:600;margin-top:8px}
+input#gpxFile{display:none}
+
+/* ── Buttons ───────────────────────────────────────────────────── */
+.btn{display:inline-flex;align-items:center;gap:8px;padding:10px 24px;border:none;border-radius:6px;font-size:14px;font-weight:600;cursor:pointer;transition:all .2s}
+.btn-primary{background:var(--blue);color:#fff}
+.btn-primary:hover:not(:disabled){background:var(--blue-light)}
+.btn-primary:disabled{opacity:.45;cursor:not-allowed}
+.btn-secondary{background:#f0f2f7;color:var(--text);border:1px solid var(--border);padding:8px 16px;font-size:13px}
+.btn-secondary:hover{background:#e8ebf4}
+.btn-orange{background:var(--orange);color:var(--blue-dark);padding:8px 18px;font-size:13px;border:none;border-radius:6px;font-weight:700;cursor:pointer;transition:all .2s}
+.btn-orange:hover{background:var(--orange-light)}
+
+/* ── Status ────────────────────────────────────────────────────── */
+.status{padding:10px 14px;border-radius:6px;font-size:13px;margin-top:12px;display:none}
+.status.info{display:block;background:#e0f2fe;color:#075985;border:1px solid #bae6fd}
+.status.error{display:block;background:#fee2e2;color:#991b1b;border:1px solid #fecaca}
+.status.success{display:block;background:#dcfce7;color:#166534;border:1px solid #bbf7d0}
+.status.warning{display:block;background:#fef3c7;color:#92400e;border:1px solid #fde68a}
+
+/* ── Stats metrics ─────────────────────────────────────────────── */
+.metrics-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.metric{text-align:center;padding:12px 8px;background:#f7f9fc;border-radius:8px;border:1px solid #edf0f7}
+.metric .value{font-size:22px;font-weight:700;color:var(--blue)}
+.metric .unit{font-size:11px;color:var(--sub)}
+.metric .label{font-size:10px;color:var(--sub);margin-top:3px;text-transform:uppercase;letter-spacing:.3px}
+.metric.hl .value{color:var(--orange)}
+
+/* ── Settings ──────────────────────────────────────────────────── */
+.setting-row{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;font-size:13px}
+.setting-row span{color:var(--sub);font-size:11px}
+.setting-val{font-weight:700;color:var(--blue);min-width:60px;text-align:right}
+
+/* ── Viewer card ───────────────────────────────────────────────── */
+.viewer-card{padding:0;overflow:hidden}
+.viewer-tabs{display:flex;border-bottom:2px solid var(--border)}
+.viewer-tab{flex:1;text-align:center;padding:11px;font-size:13px;font-weight:600;color:var(--sub);cursor:pointer;border-bottom:3px solid transparent;margin-bottom:-2px;transition:all .2s;background:none;border-top:none;border-left:none;border-right:none}
+.viewer-tab.active{color:var(--blue);border-bottom-color:var(--blue)}
+.viewer-pane{display:none;padding:16px}
+.viewer-pane.active{display:block}
+
+/* ── Map ───────────────────────────────────────────────────────── */
+#map{height:480px;border-radius:8px;border:1px solid var(--border)}
+
+/* ── Street View pane ──────────────────────────────────────────── */
+.sv-wrap{position:relative;border-radius:8px;overflow:hidden;background:#0a1020;aspect-ratio:16/9}
+.sv-img{width:100%;height:100%;object-fit:cover;display:block}
+.sv-placeholder{width:100%;height:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;color:rgba(255,255,255,.4);font-size:14px;gap:10px;min-height:300px}
+.sv-placeholder .big{font-size:48px}
+
+/* overlay elements */
+.sv-overlay-dist{position:absolute;top:14px;left:14px;background:rgba(10,16,32,.72);color:#fff;padding:6px 12px;border-radius:8px;font-size:14px;font-weight:700;font-family:var(--mono);backdrop-filter:blur(6px);pointer-events:none}
+.sv-overlay-pct{position:absolute;top:14px;right:14px;background:rgba(10,16,32,.72);color:var(--orange);padding:6px 12px;border-radius:8px;font-size:14px;font-weight:700;font-family:var(--mono);backdrop-filter:blur(6px);pointer-events:none}
+.sv-overlay-bar{position:absolute;bottom:0;left:0;right:0;height:5px;background:rgba(255,255,255,.15)}
+.sv-overlay-bar-fill{height:100%;background:var(--orange);transition:width .3s ease}
+.sv-loading{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;background:rgba(10,16,32,.6);color:#fff;font-size:13px;gap:8px;backdrop-filter:blur(2px)}
+.sv-loading .spin{display:inline-block;width:16px;height:16px;border:2px solid rgba(255,255,255,.3);border-top-color:#fff;border-radius:50%;animation:spin .7s linear infinite;flex-shrink:0}
+.sv-no-cover{position:absolute;bottom:54px;left:50%;transform:translateX(-50%);background:rgba(200,100,0,.85);color:#fff;padding:4px 12px;border-radius:12px;font-size:11px;font-weight:600;pointer-events:none;white-space:nowrap}
+@keyframes spin{to{transform:rotate(360deg)}}
+
+/* ── Player controls ───────────────────────────────────────────── */
+.player{padding:14px 16px;border-top:1px solid var(--border);display:flex;flex-direction:column;gap:10px}
+.player-seek{display:flex;align-items:center;gap:10px}
+.player-seek input[type=range]{flex:1;height:4px}
+.player-seek .time{font-size:12px;color:var(--sub);font-family:var(--mono);min-width:90px;text-align:right}
+.player-btns{display:flex;align-items:center;gap:10px}
+.player-btns button{background:none;border:none;cursor:pointer;font-size:20px;padding:4px 6px;border-radius:6px;transition:background .15s;line-height:1;color:var(--text)}
+.player-btns button:hover{background:#f0f2f7}
+.player-btns button:disabled{opacity:.3;cursor:not-allowed}
+.player-btns .play-btn{font-size:26px;color:var(--blue)}
+.speed-group{margin-left:auto;display:flex;align-items:center;gap:6px;font-size:12px;color:var(--sub)}
+.speed-group select{font-size:12px;padding:3px 6px;border:1px solid var(--border);border-radius:5px;background:#fafbfd;color:var(--text);cursor:pointer}
+
+/* ── Elevation strip ───────────────────────────────────────────── */
+.elev-strip{padding:0 16px 14px;position:relative}
+.elev-strip svg{width:100%;height:60px;display:block;border-radius:6px;overflow:visible}
+.elev-strip .elev-label{display:flex;justify-content:space-between;font-size:10px;color:var(--sub);margin-top:3px;font-family:var(--mono)}
+.elev-cursor{position:absolute;top:0;bottom:22px;width:2px;background:var(--orange);pointer-events:none;transition:left .3s ease;border-radius:1px}
+
+/* ── Footer ────────────────────────────────────────────────────── */
+.footer{text-align:center;padding:24px;font-size:12px;color:var(--sub)}
+
+.hidden{display:none!important}
+</style>
+</head>
+<body>
+
+<!-- ═══ HEADER ═════════════════════════════════════════════════════ -->
+<div class="header">
+  <svg width="40" height="28" viewBox="0 0 52 36" fill="none">
+    <path d="M4 28 Q10 8 26 8 Q42 8 48 28" stroke="#fff" stroke-width="3" fill="none" stroke-linecap="round"/>
+    <circle cx="26" cy="8" r="4" fill="#ffa500"/>
+    <path d="M16 28 L26 14 L36 28" stroke="rgba(255,255,255,.5)" stroke-width="1.5" fill="none"/>
+  </svg>
+  <h1>Race<span>View</span> <span class="tag">BETA</span></h1>
+  <div class="header-spacer"></div>
+  <div class="user-badge" id="userBadge">
+    <span id="userDisplay">—</span>
+    <button onclick="doLogout()">Sign Out</button>
+  </div>
+</div>
+
+<!-- ═══ MAIN APP ════════════════════════════════════════════════════ -->
+<div class="container">
+  <div class="grid">
+
+    <!-- ── Left panel ────────────────────────────────────────────── -->
+    <div>
+
+      <!-- Upload card -->
+      <div class="card">
+        <h2>📂 Course File</h2>
+        <div class="dropzone" id="dropzone" onclick="document.getElementById('gpxFile').click()">
+          <div class="dz-icon">🗺️</div>
+          <p>Drop a <strong>.gpx</strong> file here or click to browse</p>
+          <div class="filename" id="dzFilename"></div>
+        </div>
+        <input type="file" id="gpxFile" accept=".gpx">
+        <div id="parseStatus" class="status"></div>
+      </div>
+
+      <!-- Route stats (hidden until GPX loaded) -->
+      <div class="card hidden" id="statsCard">
+        <h2>📊 Route Stats</h2>
+        <div class="metrics-grid">
+          <div class="metric hl"><div class="value" id="statDist">—</div><div class="unit">km</div><div class="label">Distance</div></div>
+          <div class="metric"><div class="value" id="statElev">—</div><div class="unit">m</div><div class="label">Elev. Gain</div></div>
+          <div class="metric"><div class="value" id="statPts">—</div><div class="unit">pts</div><div class="label">Raw Points</div></div>
+          <div class="metric"><div class="value" id="statSampled">—</div><div class="unit">frames</div><div class="label">Sampled</div></div>
+        </div>
+      </div>
+
+      <!-- Settings card -->
+      <div class="card">
+        <h2>⚙️ Sampling Settings</h2>
+        <div class="field">
+          <div class="setting-row">
+            <label style="margin:0">Sample every</label>
+            <span class="setting-val"><span id="sampleVal">500</span> m</span>
+          </div>
+          <input type="range" id="sampleSlider" min="100" max="2000" step="100" value="500" oninput="onSampleChange(this.value)">
+          <small>Lower = more Street View frames (higher API cost). 500 m ≈ 200 frames for a 100 km course.</small>
+        </div>
+        <div class="field">
+          <div class="setting-row">
+            <label style="margin:0">FOV</label>
+            <span class="setting-val"><span id="fovVal">90</span>°</span>
+          </div>
+          <input type="range" id="fovSlider" min="30" max="120" step="10" value="90" oninput="onFovChange(this.value)">
+          <small>Field of view. 90° is natural; lower gives a telephoto look.</small>
+        </div>
+        <div id="applyWrap" class="hidden" style="margin-top:8px">
+          <button class="btn btn-primary" style="width:100%" onclick="applySettings()">Re-sample Route</button>
+        </div>
+      </div>
+
+    </div><!-- /left -->
+
+    <!-- ── Right panel ───────────────────────────────────────────── -->
+    <div>
+      <div class="card viewer-card" id="viewerCard">
+
+        <!-- Tab bar -->
+        <div class="viewer-tabs">
+          <button class="viewer-tab active" id="tabMap" onclick="switchViewTab('map')">🗺 Route Map</button>
+          <button class="viewer-tab" id="tabSV" onclick="switchViewTab('sv')">📸 Street View</button>
+        </div>
+
+        <!-- Map pane -->
+        <div class="viewer-pane active" id="paneMap">
+          <div id="map"></div>
+        </div>
+
+        <!-- Street View pane -->
+        <div class="viewer-pane" id="paneSV">
+          <div class="sv-wrap" id="svWrap">
+            <div class="sv-placeholder" id="svPlaceholder">
+              <div class="big">🏔️</div>
+              <div>Load a GPX file to begin the ride-through</div>
+            </div>
+            <img class="sv-img hidden" id="svImg" alt="Street View">
+            <div class="sv-overlay-dist hidden" id="ovDist">0.0 km</div>
+            <div class="sv-overlay-pct hidden" id="ovPct">0%</div>
+            <div class="sv-overlay-bar hidden" id="ovBar"><div class="sv-overlay-bar-fill" id="ovBarFill" style="width:0%"></div></div>
+            <div class="sv-loading hidden" id="svLoading"><div class="spin"></div> Loading imagery…</div>
+            <div class="sv-no-cover hidden" id="svNoCover">No Street View coverage at this location</div>
+          </div>
+
+          <!-- Elevation strip -->
+          <div class="elev-strip" id="elevStrip">
+            <svg id="elevSvg" viewBox="0 0 800 60" preserveAspectRatio="none"></svg>
+            <div class="elev-label"><span id="elevMin">—</span><span id="elevMax">—</span></div>
+            <div class="elev-cursor hidden" id="elevCursor"></div>
+          </div>
+        </div>
+
+        <!-- Player controls (shown in SV tab) -->
+        <div class="player hidden" id="playerControls">
+          <div class="player-seek">
+            <input type="range" id="seekBar" min="0" max="100" value="0" step="1" oninput="onSeek(this.value)">
+            <span class="time" id="seekLabel">0.0 / 0.0 km</span>
+          </div>
+          <div class="player-btns">
+            <button title="Back 5 frames" onclick="playerStep(-5)">⏮</button>
+            <button title="Previous frame" onclick="playerStep(-1)">◀</button>
+            <button class="play-btn" id="playBtn" title="Play / Pause" onclick="togglePlay()">▶</button>
+            <button title="Next frame" onclick="playerStep(1)">▶</button>
+            <button title="Forward 5 frames" onclick="playerStep(5)">⏭</button>
+            <div class="speed-group">
+              Speed:
+              <select id="speedSelect" onchange="onSpeedChange(this.value)">
+                <option value="0.5">0.5×</option>
+                <option value="1" selected>1×</option>
+                <option value="2">2×</option>
+                <option value="4">4×</option>
+                <option value="8">8×</option>
+              </select>
+            </div>
+          </div>
+        </div>
+
+      </div><!-- /viewer-card -->
+    </div><!-- /right -->
+
+  </div><!-- /grid -->
+</div><!-- /container -->
+
+<div class="footer">RaceView — Part of the <a href="https://aerob.be">AeroB</a> ecosystem · Not affiliated with Google</div>
+
+<script>
+// ═══════════════════════════════════════════════════════════════════
+// Config
+// ═══════════════════════════════════════════════════════════════════
+const EDGE_BASE = `${SUPABASE_URL}/functions/v1`;
+
+// ═══════════════════════════════════════════════════════════════════
+// State
+// ═══════════════════════════════════════════════════════════════════
+const state = {
+  currentUser: null,
+  rawPoints:   [],    // all parsed GPX points
+  sampled:     [],    // distance-sampled points with heading
+  totalDist:   0,     // meters
+  elevGain:    0,
+  currentIdx:  0,
+  playing:     false,
+  speed:       1,
+  sampleMeters:500,
+  fov:         90,
+  pendingResample: false,
+};
+
+// Image cache: index → blob URL
+const imgCache = new Map();
+const loadingSet = new Set();
+
+// ═══════════════════════════════════════════════════════════════════
+// Auth
+// ═══════════════════════════════════════════════════════════════════
+function onSignedIn(user) {
+  state.currentUser = user;
+  document.getElementById('userDisplay').textContent = user.displayName || user.email.split('@')[0];
+}
+
+const _platformLogout = window.doLogout;
+async function doLogout() {
+  state.currentUser = null;
+  await _platformLogout();
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// GPX Parser
+// ═══════════════════════════════════════════════════════════════════
+function haversine(a, b) {
+  const R = 6371000;
+  const φ1 = a.lat * Math.PI / 180, φ2 = b.lat * Math.PI / 180;
+  const Δφ = (b.lat - a.lat) * Math.PI / 180;
+  const Δλ = (b.lon - a.lon) * Math.PI / 180;
+  const s = Math.sin(Δφ/2)**2 + Math.cos(φ1)*Math.cos(φ2)*Math.sin(Δλ/2)**2;
+  return 2 * R * Math.atan2(Math.sqrt(s), Math.sqrt(1 - s));
+}
+
+function bearing(a, b) {
+  const φ1 = a.lat * Math.PI / 180, φ2 = b.lat * Math.PI / 180;
+  const Δλ = (b.lon - a.lon) * Math.PI / 180;
+  const y = Math.sin(Δλ) * Math.cos(φ2);
+  const x = Math.cos(φ1)*Math.sin(φ2) - Math.sin(φ1)*Math.cos(φ2)*Math.cos(Δλ);
+  return (Math.atan2(y, x) * 180 / Math.PI + 360) % 360;
+}
+
+function parseGpx(xmlText) {
+  const doc = new DOMParser().parseFromString(xmlText, 'application/xml');
+  const parseErr = doc.querySelector('parsererror');
+  if (parseErr) throw new Error('Invalid GPX/XML file');
+
+  const trkpts = [...doc.querySelectorAll('trkpt')];
+  if (!trkpts.length) throw new Error('No track points found in this GPX file');
+
+  const raw = trkpts.map(pt => ({
+    lat: parseFloat(pt.getAttribute('lat')),
+    lon: parseFloat(pt.getAttribute('lon')),
+    ele: parseFloat(pt.querySelector('ele')?.textContent ?? '0') || 0,
+  }));
+
+  let dist = 0, gain = 0;
+  const points = raw.map((pt, i) => {
+    if (i > 0) {
+      dist += haversine(raw[i-1], pt);
+      const de = pt.ele - raw[i-1].ele;
+      if (de > 0) gain += de;
+    }
+    return { ...pt, dist };
+  });
+
+  return { points, totalDist: dist, elevGain: gain };
+}
+
+function sampleRoute(points, sampleMeters) {
+  if (!points.length) return [];
+  const out = [points[0]];
+  let lastDist = 0;
+  for (const pt of points) {
+    if (pt.dist - lastDist >= sampleMeters) {
+      out.push(pt);
+      lastDist = pt.dist;
+    }
+  }
+  const last = points[points.length - 1];
+  if (out[out.length - 1] !== last) out.push(last);
+  return out;
+}
+
+function addHeadings(sampled) {
+  return sampled.map((pt, i) => {
+    let h;
+    if (i < sampled.length - 1) {
+      h = bearing(pt, sampled[i + 1]);
+    } else {
+      h = i > 0 ? bearing(sampled[i - 1], pt) : 0;
+    }
+    return { ...pt, heading: Math.round(h) };
+  });
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// Map (Leaflet)
+// ═══════════════════════════════════════════════════════════════════
+let leafletMap = null;
+let routeLayer = null;
+let posMarker  = null;
+
+function initMap() {
+  leafletMap = L.map('map', { zoomControl: true });
+  L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    maxZoom: 19,
+    attribution: '© OpenStreetMap contributors',
+  }).addTo(leafletMap);
+}
+
+function drawRoute(sampled) {
+  if (routeLayer) leafletMap.removeLayer(routeLayer);
+  if (posMarker)  leafletMap.removeLayer(posMarker);
+
+  const latlngs = sampled.map(p => [p.lat, p.lon]);
+  routeLayer = L.polyline(latlngs, { color: '#1f3b88', weight: 4, opacity: 0.85 }).addTo(leafletMap);
+  leafletMap.fitBounds(routeLayer.getBounds(), { padding: [24, 24] });
+
+  const startIcon = L.divIcon({
+    html: '<div style="width:12px;height:12px;background:#ffa500;border:2px solid #fff;border-radius:50%;box-shadow:0 1px 4px rgba(0,0,0,.4)"></div>',
+    className: '', iconAnchor: [6, 6],
+  });
+  L.marker([sampled[0].lat, sampled[0].lon], { icon: startIcon }).addTo(leafletMap);
+
+  updateMapMarker(0);
+}
+
+function updateMapMarker(idx) {
+  const pt = state.sampled[idx];
+  if (!pt) return;
+
+  if (posMarker) leafletMap.removeLayer(posMarker);
+
+  const icon = L.divIcon({
+    html: '<div style="width:14px;height:14px;background:#1f3b88;border:3px solid #fff;border-radius:50%;box-shadow:0 1px 6px rgba(0,0,0,.5)"></div>',
+    className: '', iconAnchor: [7, 7],
+  });
+  posMarker = L.marker([pt.lat, pt.lon], { icon }).addTo(leafletMap);
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// Elevation profile (SVG sparkline)
+// ═══════════════════════════════════════════════════════════════════
+function drawElevProfile(sampled) {
+  const svg = document.getElementById('elevSvg');
+  const elevs = sampled.map(p => p.ele);
+  const minE = Math.min(...elevs), maxE = Math.max(...elevs);
+  const range = maxE - minE || 1;
+  const W = 800, H = 60, pad = 4;
+
+  const pts = sampled.map((p, i) => {
+    const x = (i / (sampled.length - 1)) * W;
+    const y = H - pad - ((p.ele - minE) / range) * (H - 2*pad);
+    return `${x},${y}`;
+  });
+
+  svg.innerHTML = `
+    <defs>
+      <linearGradient id="elevGrad" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0%" stop-color="#1f3b88" stop-opacity="0.3"/>
+        <stop offset="100%" stop-color="#1f3b88" stop-opacity="0.05"/>
+      </linearGradient>
+    </defs>
+    <polygon points="${pts.join(' ')} ${W},${H} 0,${H}" fill="url(#elevGrad)"/>
+    <polyline points="${pts.join(' ')}" fill="none" stroke="#1f3b88" stroke-width="1.5"/>
+  `;
+
+  document.getElementById('elevMin').textContent = `${Math.round(minE)} m`;
+  document.getElementById('elevMax').textContent = `${Math.round(maxE)} m`;
+  document.getElementById('elevStrip').style.display = 'block';
+  document.getElementById('elevCursor').classList.remove('hidden');
+}
+
+function updateElevCursor(idx) {
+  if (!state.sampled.length) return;
+  const pct = idx / (state.sampled.length - 1);
+  const strip = document.getElementById('elevStrip');
+  const cursor = document.getElementById('elevCursor');
+  const svgEl = document.getElementById('elevSvg');
+  const svgW = svgEl.getBoundingClientRect().width;
+  cursor.style.left = (pct * svgW + svgEl.getBoundingClientRect().left - strip.getBoundingClientRect().left) + 'px';
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// Street View loader
+// ═══════════════════════════════════════════════════════════════════
+const MAX_CACHE = 60;
+
+async function getAccessToken() {
+  const { data: { session } } = await _sb.auth.getSession();
+  return session?.access_token ?? SUPABASE_ANON_KEY;
+}
+
+async function fetchStreetView(idx) {
+  if (imgCache.has(idx)) return imgCache.get(idx);
+  if (loadingSet.has(idx)) {
+    // wait for it to resolve
+    return new Promise(resolve => {
+      const poll = setInterval(() => {
+        if (imgCache.has(idx)) { clearInterval(poll); resolve(imgCache.get(idx)); }
+        else if (!loadingSet.has(idx)) { clearInterval(poll); resolve(null); }
+      }, 80);
+    });
+  }
+
+  const pt = state.sampled[idx];
+  if (!pt) return null;
+
+  loadingSet.add(idx);
+  try {
+    const token = await getAccessToken();
+    const params = new URLSearchParams({
+      lat: pt.lat.toFixed(6),
+      lon: pt.lon.toFixed(6),
+      heading: String(pt.heading),
+      fov: String(state.fov),
+      size: '800x450',
+    });
+    const resp = await fetch(`${EDGE_BASE}/streetview-proxy?${params}`, {
+      headers: { 'Authorization': `Bearer ${token}` },
+    });
+
+    if (!resp.ok) {
+      loadingSet.delete(idx);
+      return null;
+    }
+
+    // Evict oldest entry when cache is full
+    if (imgCache.size >= MAX_CACHE) {
+      const oldest = imgCache.keys().next().value;
+      URL.revokeObjectURL(imgCache.get(oldest));
+      imgCache.delete(oldest);
+    }
+
+    const blob = await resp.blob();
+    const url = URL.createObjectURL(blob);
+    imgCache.set(idx, url);
+
+    // Detect Google's "no imagery" grey placeholder by checking
+    // the custom header the proxy injects
+    const noCover = resp.headers.get('X-No-Coverage') === '1';
+    imgCache.set(`${idx}_nocov`, noCover);
+
+    return url;
+  } catch {
+    return null;
+  } finally {
+    loadingSet.delete(idx);
+  }
+}
+
+function preload(idx, ahead = 5) {
+  for (let i = 1; i <= ahead; i++) {
+    const next = idx + i;
+    if (next < state.sampled.length && !imgCache.has(next) && !loadingSet.has(next)) {
+      fetchStreetView(next).catch(() => {});
+    }
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// Player
+// ═══════════════════════════════════════════════════════════════════
+let playerTimer = null;
+
+function togglePlay() {
+  if (state.playing) pausePlayer();
+  else playPlayer();
+}
+
+function playPlayer() {
+  if (!state.sampled.length) return;
+  state.playing = true;
+  document.getElementById('playBtn').textContent = '⏸';
+  scheduleNext();
+}
+
+function pausePlayer() {
+  state.playing = false;
+  document.getElementById('playBtn').textContent = '▶';
+  clearTimeout(playerTimer);
+}
+
+function scheduleNext() {
+  if (!state.playing) return;
+  const delay = 1000 / state.speed;
+  playerTimer = setTimeout(async () => {
+    const next = state.currentIdx + 1;
+    if (next >= state.sampled.length) {
+      pausePlayer();
+      return;
+    }
+    await goTo(next);
+    scheduleNext();
+  }, delay);
+}
+
+function playerStep(delta) {
+  if (!state.sampled.length) return;
+  const next = Math.max(0, Math.min(state.sampled.length - 1, state.currentIdx + delta));
+  goTo(next);
+}
+
+function onSeek(val) {
+  if (!state.sampled.length) return;
+  const idx = Math.round((val / 100) * (state.sampled.length - 1));
+  goTo(idx);
+}
+
+function onSpeedChange(val) {
+  state.speed = parseFloat(val);
+  if (state.playing) {
+    clearTimeout(playerTimer);
+    scheduleNext();
+  }
+}
+
+async function goTo(idx) {
+  state.currentIdx = idx;
+  const pt = state.sampled[idx];
+  const total = state.totalDist;
+
+  // Update seek bar
+  const pct = total > 0 ? (pt.dist / total) * 100 : 0;
+  document.getElementById('seekBar').value = pct;
+  document.getElementById('seekLabel').textContent =
+    `${(pt.dist/1000).toFixed(1)} / ${(total/1000).toFixed(1)} km`;
+
+  // Update overlays
+  document.getElementById('ovDist').textContent = `${(pt.dist/1000).toFixed(2)} km`;
+  document.getElementById('ovPct').textContent = `${Math.round(pct)}%`;
+  document.getElementById('ovBarFill').style.width = pct + '%';
+
+  // Update map marker
+  updateMapMarker(idx);
+  updateElevCursor(idx);
+
+  // Preload ahead
+  preload(idx);
+
+  // Show loading state while fetching
+  const svImg = document.getElementById('svImg');
+  const svLoad = document.getElementById('svLoading');
+  const svNoCov = document.getElementById('svNoCover');
+
+  if (!imgCache.has(idx)) {
+    svLoad.classList.remove('hidden');
+  }
+
+  const url = await fetchStreetView(idx);
+
+  svLoad.classList.add('hidden');
+
+  if (url) {
+    svImg.src = url;
+    svImg.classList.remove('hidden');
+    document.getElementById('svPlaceholder').classList.add('hidden');
+    const noCov = imgCache.get(`${idx}_nocov`);
+    svNoCov.classList.toggle('hidden', !noCov);
+  } else {
+    svImg.classList.add('hidden');
+    document.getElementById('svPlaceholder').classList.remove('hidden');
+    svNoCov.classList.add('hidden');
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// GPX load flow
+// ═══════════════════════════════════════════════════════════════════
+function setStatus(el, type, msg) {
+  el.className = `status ${type}`;
+  el.textContent = msg;
+}
+
+function handleGpxFile(file) {
+  if (!file || !file.name.toLowerCase().endsWith('.gpx')) {
+    setStatus(document.getElementById('parseStatus'), 'error', 'Please select a valid .gpx file.');
+    return;
+  }
+
+  document.getElementById('dzFilename').textContent = file.name;
+  const statusEl = document.getElementById('parseStatus');
+  setStatus(statusEl, 'info', 'Parsing GPX…');
+
+  const reader = new FileReader();
+  reader.onload = e => {
+    try {
+      const { points, totalDist, elevGain } = parseGpx(e.target.result);
+      state.rawPoints  = points;
+      state.totalDist  = totalDist;
+      state.elevGain   = elevGain;
+
+      processSampled();
+
+      setStatus(statusEl, 'success',
+        `Route loaded: ${(totalDist/1000).toFixed(1)} km · ${state.sampled.length} frames at ${state.sampleMeters} m intervals`);
+
+    } catch (err) {
+      setStatus(statusEl, 'error', `Parse error: ${err.message}`);
+    }
+  };
+  reader.readAsText(file);
+}
+
+function processSampled() {
+  const raw = sampleRoute(state.rawPoints, state.sampleMeters);
+  state.sampled = addHeadings(raw);
+
+  // Clear image cache when resampling
+  for (const url of imgCache.values()) {
+    if (typeof url === 'string' && url.startsWith('blob:')) URL.revokeObjectURL(url);
+  }
+  imgCache.clear();
+  loadingSet.clear();
+
+  state.currentIdx = 0;
+  state.playing = false;
+  document.getElementById('playBtn').textContent = '▶';
+
+  // Update stats
+  document.getElementById('statDist').textContent = (state.totalDist / 1000).toFixed(1);
+  document.getElementById('statElev').textContent = Math.round(state.elevGain);
+  document.getElementById('statPts').textContent = state.rawPoints.length.toLocaleString();
+  document.getElementById('statSampled').textContent = state.sampled.length;
+  document.getElementById('statsCard').classList.remove('hidden');
+
+  drawRoute(state.sampled);
+  drawElevProfile(state.sampled);
+
+  // Enable player
+  document.getElementById('playerControls').classList.remove('hidden');
+  showOverlays(true);
+
+  // Update seek bar
+  document.getElementById('seekBar').max = 100;
+  document.getElementById('seekBar').value = 0;
+  document.getElementById('seekLabel').textContent = `0.0 / ${(state.totalDist/1000).toFixed(1)} km`;
+
+  goTo(0);
+  document.getElementById('applyWrap').classList.add('hidden');
+}
+
+function showOverlays(show) {
+  ['ovDist','ovPct','ovBar'].forEach(id =>
+    document.getElementById(id).classList.toggle('hidden', !show));
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// Settings
+// ═══════════════════════════════════════════════════════════════════
+function onSampleChange(val) {
+  state.sampleMeters = parseInt(val);
+  document.getElementById('sampleVal').textContent = val;
+  if (state.rawPoints.length) document.getElementById('applyWrap').classList.remove('hidden');
+}
+
+function onFovChange(val) {
+  state.fov = parseInt(val);
+  document.getElementById('fovVal').textContent = val;
+  // Invalidate cache (FOV change requires re-fetch)
+  for (const url of imgCache.values()) {
+    if (typeof url === 'string' && url.startsWith('blob:')) URL.revokeObjectURL(url);
+  }
+  imgCache.clear();
+  if (state.sampled.length) goTo(state.currentIdx);
+}
+
+function applySettings() {
+  if (!state.rawPoints.length) return;
+  processSampled();
+  const statusEl = document.getElementById('parseStatus');
+  setStatus(statusEl, 'success',
+    `Resampled: ${state.sampled.length} frames at ${state.sampleMeters} m intervals`);
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// Tab switching
+// ═══════════════════════════════════════════════════════════════════
+function switchViewTab(tab) {
+  const isMap = tab === 'map';
+  document.getElementById('paneMap').classList.toggle('active', isMap);
+  document.getElementById('paneSV').classList.toggle('active', !isMap);
+  document.getElementById('tabMap').classList.toggle('active', isMap);
+  document.getElementById('tabSV').classList.toggle('active', !isMap);
+  document.getElementById('playerControls').classList.toggle('hidden', isMap);
+
+  if (isMap && leafletMap) {
+    setTimeout(() => leafletMap.invalidateSize(), 50);
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// Drag & drop
+// ═══════════════════════════════════════════════════════════════════
+function initDrop() {
+  const dz = document.getElementById('dropzone');
+  const fi = document.getElementById('gpxFile');
+
+  dz.addEventListener('dragover', e => { e.preventDefault(); dz.classList.add('drag-over'); });
+  dz.addEventListener('dragleave', () => dz.classList.remove('drag-over'));
+  dz.addEventListener('drop', e => {
+    e.preventDefault();
+    dz.classList.remove('drag-over');
+    handleGpxFile(e.dataTransfer.files[0]);
+  });
+  fi.addEventListener('change', () => handleGpxFile(fi.files[0]));
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// Init
+// ═══════════════════════════════════════════════════════════════════
+document.addEventListener('DOMContentLoaded', () => {
+  AeroBPlatform.init('raceview', { onReady: onSignedIn });
+  initMap();
+  initDrop();
+});
+</script>
+</body>
+</html>
