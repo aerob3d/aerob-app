@@ -103,6 +103,11 @@ input#gpxFile{display:none}
 .dr-label{font-size:9px;font-weight:800;letter-spacing:.9px;text-transform:uppercase;color:rgba(255,255,255,.38);min-width:26px;font-family:var(--mono)}
 .dr-val{font-size:12px;font-weight:700;color:#fff;white-space:nowrap;font-family:var(--mono)}
 .dr-sub{font-size:10px;color:rgba(255,255,255,.48);font-family:var(--mono);white-space:nowrap;line-height:1.3}
+/* REL row — visually heavier: it's the most actionable metric */
+#drRel{background:rgba(255,255,255,.04)}
+#drRel .dr-label{color:rgba(255,255,255,.65)}
+#drRel .dr-val{font-size:13px}
+#drRel .dr-icon line{stroke-width:2}
 
 /* ── Gradient overlay ───────────────────────────────────────────── */
 .sv-overlay-grad{position:absolute;bottom:14px;left:14px;background:rgba(10,16,32,.72);color:#fff;padding:6px 12px;border-radius:8px;font-size:14px;font-weight:700;font-family:var(--mono);backdrop-filter:blur(6px);pointer-events:none}
@@ -330,8 +335,8 @@ input#gpxFile{display:none}
                 </div>
               </div>
 
-              <!-- REL — wind angle in rider-relative coordinates (hidden when wind=off) -->
-              <!-- Arrow "up" = rider-forward; small dot marks 12-o'clock reference -->
+              <!-- REL — wind in rider frame; arrow = wind FLOW direction (not source).  -->
+              <!-- Triangle at top = rider-forward. Headwind: arrow↓. Tailwind: arrow↑ -->
               <div class="dir-row hidden" id="drRel">
                 <span class="dr-label">REL</span>
                 <svg class="dr-icon" width="22" height="22" viewBox="0 0 22 22">
@@ -778,7 +783,11 @@ function updateDirPanel(idx) {
     // REL row — rider-relative: 0° = headwind, 90° = crosswind right, 180° = tailwind
     const cls    = classifyRelativeWind(h, wDir);
     const relDeg = Math.round(cls.rel);
-    document.getElementById('drRelNeedle').setAttribute('transform', `rotate(${relDeg},11,11)`);
+    // +180° converts "source direction" to "flow direction" in rider frame:
+    // headwind (rel=0°) → arrow points down (wind blowing into your face from front)
+    // tailwind (rel=180°) → arrow points up (wind at your back, flowing forward)
+    document.getElementById('drRelNeedle').setAttribute('transform',
+      `rotate(${normalizeAngle(relDeg + 180)},11,11)`);
     document.getElementById('drRelArrow').setAttribute('fill', cls.color);
     document.getElementById('drRelNeedleLine').setAttribute('stroke', cls.color + 'aa');
     document.getElementById('drRelVal').textContent = `${relDeg}°`;
