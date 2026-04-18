@@ -628,27 +628,45 @@ function kmhToBeaufort(kmh) {
   return 0;
 }
 
-// 8-sector relative wind classification.
-// rel = normalizeAngle(windFromDir - heading)
-// rel = 0°  → wind from directly ahead  → Headwind
-// rel = 90° → wind from rider's right   → Crosswind Right
-// rel = 180°→ wind from directly behind → Tailwind
-// Sectors are 45° wide, centred on 0°, 45°, 90°, … 315°.
-const REL_SECTORS = [
-  { label: 'Headwind',     color: '#ff6b6b' },  // 0
-  { label: 'Front-Right',  color: '#ff8c42' },  // 45
-  { label: 'Crosswind R',  color: '#ffa500' },  // 90
-  { label: 'Rear-Right',   color: '#c5e85a' },  // 135
-  { label: 'Tailwind',     color: '#4ade80' },  // 180
-  { label: 'Rear-Left',    color: '#c5e85a' },  // 225
-  { label: 'Crosswind L',  color: '#ffa500' },  // 270
-  { label: 'Front-Left',   color: '#ff8c42' },  // 315
-];
+// Signed angle from direction a to direction b, range [-180, +180].
+// Positive = b is clockwise (right) of a.
+function smallestSignedAngleDeg(a, b) {
+  return ((b - a) % 360 + 540) % 360 - 180;
+}
 
+// windToDeg = direction wind is BLOWING TOWARD (used for arrow visuals only).
+function getWindToDirection(windFromDeg) {
+  return normalizeAngle(windFromDeg + 180);
+}
+
+// Relative wind classification using meteorological convention.
+// Inputs: routeHeadingDeg (direction rider travels TO),
+//         windFromDir     (direction wind comes FROM).
+//
+// delta = signed angle from heading to windFrom:
+//   |delta| ≤ 30°  → Headwind      (wind mostly against rider)
+//   |delta| ≥ 150° → Tailwind      (wind mostly behind rider)
+//   delta  < 0     → Crosswind ←   (wind from rider's left)
+//   delta  > 0     → Crosswind →   (wind from rider's right)
+//
+// Test cases:
+//   hdg 90° / from  90° → delta   0° → Headwind
+//   hdg 90° / from 270° → delta 180° → Tailwind
+//   hdg 90° / from   0° → delta -90° → Crosswind ←
+//   hdg 90° / from 180° → delta  90° → Crosswind →
+//   hdg  0° / from   0° → delta   0° → Headwind
+//   hdg  0° / from 180° → delta 180° → Tailwind
+//   hdg225° / from  45° → delta 180° → Tailwind
+//   hdg225° / from 225° → delta   0° → Headwind
 function classifyRelativeWind(heading, windFromDir) {
-  const rel    = normalizeAngle(windFromDir - heading);
-  const sector = Math.round(rel / 45) % 8;
-  return { rel, ...REL_SECTORS[sector] };
+  const delta    = smallestSignedAngleDeg(heading, windFromDir);
+  const absDelta = Math.abs(delta);
+  let label, color;
+  if (absDelta <= 30)        { label = 'Headwind';    color = '#ff6b6b'; }
+  else if (absDelta >= 150)  { label = 'Tailwind';    color = '#4ade80'; }
+  else if (delta < 0)        { label = 'Crosswind ←'; color = '#ffa500'; }
+  else                       { label = 'Crosswind →'; color = '#ffa500'; }
+  return { delta, absDelta, label, color };
 }
 
 function isDateInForecastRange(date) {
@@ -771,29 +789,32 @@ function updateDirPanel(idx) {
   document.getElementById('drRel').classList.toggle('hidden', !hasWind);
 
   if (hasWind) {
-    const wDir = wind.direction;
-    const wSpd = wind.speed;
+    const wDir    = wind.direction;                 // windFromDeg (meteorological)
+    const windTo  = getWindToDirection(wDir);       // windToDeg   (flow direction)
+    const wSpd    = wind.speed;
 
-    // WIND row — geographic compass, arrow points FROM source direction
-    document.getElementById('drWindNeedle').setAttribute('transform', `rotate(${wDir},11,11)`);
+    // WIND row — label says "FROM", arrow points in windTo direction (flow)
+    document.getElementById('drWindNeedle').setAttribute('transform', `rotate(${windTo},11,11)`);
     document.getElementById('drWindVal').textContent =
-      `${wDir}°\u00A0${directionToCardinal(wDir)}`;
+      `FROM\u00A0${wDir}°\u00A0${directionToCardinal(wDir)}`;
     document.getElementById('drWindSpd').textContent = `${wSpd}\u00A0km/h`;
 
-    // REL row — rider-relative: 0° = headwind, 90° = crosswind right, 180° = tailwind
-    const cls    = classifyRelativeWind(h, wDir);
-    const relDeg = Math.round(cls.rel);
-    // +180° converts "source direction" to "flow direction" in rider frame:
-    // headwind (rel=0°) → arrow points down (wind blowing into your face from front)
-    // tailwind (rel=180°) → arrow points up (wind at your back, flowing forward)
-    document.getElementById('drRelNeedle').setAttribute('transform',
-      `rotate(${normalizeAngle(relDeg + 180)},11,11)`);
+    // REL row — classification uses windFromDir (NOT windTo)
+    const cls        = classifyRelativeWind(h, wDir);
+    const absDeg     = Math.round(cls.absDelta);
+    // Arrow shows windTo projected into rider frame (0° = rider-forward = up in circle)
+    const relArrowRot = normalizeAngle(windTo - h);
+    document.getElementById('drRelNeedle').setAttribute('transform', `rotate(${relArrowRot},11,11)`);
     document.getElementById('drRelArrow').setAttribute('fill', cls.color);
     document.getElementById('drRelNeedleLine').setAttribute('stroke', cls.color + 'aa');
-    document.getElementById('drRelVal').textContent = `${relDeg}°`;
+    document.getElementById('drRelVal').textContent = `${absDeg}°`;
     const lbl = document.getElementById('drRelLabel');
-    lbl.textContent  = cls.label;
-    lbl.style.color  = cls.color;
+    lbl.textContent = cls.label;
+    lbl.style.color = cls.color;
+
+    // Debug — verify in browser console
+    console.debug('[Wind] HDG=%d° | WIND_FROM=%d° | WIND_TO=%d° | delta=%d° | %s',
+      h, wDir, windTo, Math.round(cls.delta), cls.label);
   }
 }
 
