@@ -95,8 +95,14 @@ input#gpxFile{display:none}
 /* ── Map inset overlay ──────────────────────────────────────────── */
 .sv-map-inset{position:absolute;bottom:14px;right:14px;width:210px;height:134px;border-radius:6px;overflow:hidden;border:2px solid rgba(255,255,255,.35);z-index:10;box-shadow:0 2px 12px rgba(0,0,0,.45)}
 
-/* ── Heading overlay ────────────────────────────────────────────── */
-.sv-overlay-heading{position:absolute;top:52px;left:14px;background:rgba(10,16,32,.72);color:#fff;padding:5px 10px 5px 8px;border-radius:8px;font-size:12px;font-weight:700;font-family:var(--mono);backdrop-filter:blur(6px);pointer-events:none;display:flex;align-items:center;gap:5px}
+/* ── Unified directional panel (HDG / WIND / REL) ──────────────── */
+.dir-panel{position:absolute;top:52px;left:14px;background:rgba(10,16,32,.72);border-radius:8px;backdrop-filter:blur(6px);pointer-events:none;overflow:hidden}
+.dir-row{display:flex;align-items:center;gap:7px;padding:5px 12px 5px 8px}
+.dir-row+.dir-row{border-top:1px solid rgba(255,255,255,.07)}
+.dr-icon{flex-shrink:0}
+.dr-label{font-size:9px;font-weight:800;letter-spacing:.9px;text-transform:uppercase;color:rgba(255,255,255,.38);min-width:26px;font-family:var(--mono)}
+.dr-val{font-size:12px;font-weight:700;color:#fff;white-space:nowrap;font-family:var(--mono)}
+.dr-sub{font-size:10px;color:rgba(255,255,255,.48);font-family:var(--mono);white-space:nowrap;line-height:1.3}
 
 /* ── Gradient overlay ───────────────────────────────────────────── */
 .sv-overlay-grad{position:absolute;bottom:14px;left:14px;background:rgba(10,16,32,.72);color:#fff;padding:6px 12px;border-radius:8px;font-size:14px;font-weight:700;font-family:var(--mono);backdrop-filter:blur(6px);pointer-events:none}
@@ -140,13 +146,6 @@ input#gpxFile{display:none}
 .footer{text-align:center;padding:24px;font-size:12px;color:var(--sub)}
 
 .hidden{display:none!important}
-
-/* ── Wind overlay ───────────────────────────────────────────────── */
-.sv-overlay-wind{position:absolute;top:90px;left:14px;background:rgba(10,16,32,.72);color:#fff;padding:6px 10px 6px 8px;border-radius:8px;font-family:var(--mono);backdrop-filter:blur(6px);pointer-events:none;display:flex;align-items:center;gap:8px;min-width:130px}
-.sv-overlay-wind .wind-info{display:flex;flex-direction:column;gap:2px}
-.sv-overlay-wind .wind-speed{font-size:12px;font-weight:700;color:#fff;line-height:1.2}
-.sv-overlay-wind .wind-class{font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.4px;line-height:1.2}
-.sv-overlay-wind .wind-loading{font-size:11px;color:rgba(255,255,255,.5);font-style:italic}
 
 /* ── Wind settings ──────────────────────────────────────────────── */
 .wind-mode-btns{display:flex;gap:4px;margin-bottom:12px}
@@ -297,31 +296,60 @@ input#gpxFile{display:none}
             <img class="sv-img hidden" id="svImg" alt="Street View">
             <!-- Distance (top-left) -->
             <div class="sv-overlay-dist hidden" id="ovDist">0.0 km</div>
-            <!-- Heading compass (below distance) -->
-            <div class="sv-overlay-heading hidden" id="ovHeading">
-              <svg width="22" height="22" viewBox="0 0 24 24" style="flex-shrink:0">
-                <circle cx="12" cy="12" r="11" fill="none" stroke="rgba(255,255,255,.3)" stroke-width="1.5"/>
-                <g id="compassNeedle" transform="rotate(0,12,12)">
-                  <polygon points="12,3 13.5,12 12,15 10.5,12" fill="#ffa500"/>
-                  <polygon points="12,15 13.5,12 12,21 10.5,12" fill="rgba(255,255,255,.4)"/>
-                </g>
-                <circle cx="12" cy="12" r="1.5" fill="rgba(255,255,255,.6)"/>
-              </svg>
-              <span id="headingText">—</span>
-            </div>
-            <!-- Wind overlay (below heading) -->
-            <div class="sv-overlay-wind hidden" id="ovWind">
-              <svg width="28" height="28" viewBox="0 0 28 28" style="flex-shrink:0">
-                <circle cx="14" cy="14" r="13" fill="none" stroke="rgba(255,255,255,.2)" stroke-width="1"/>
-                <g id="windArrowGroup" transform="rotate(0,14,14)">
-                  <line x1="14" y1="23" x2="14" y2="9" stroke="rgba(255,255,255,.85)" stroke-width="2" stroke-linecap="round"/>
-                  <polygon points="14,4 11,11 17,11" fill="rgba(255,255,255,.85)"/>
-                </g>
-              </svg>
-              <div class="wind-info">
-                <span class="wind-speed" id="windSpeedText">— km/h</span>
-                <span class="wind-class" id="windClassText">—</span>
+            <!-- Unified directional panel: HDG / WIND / REL -->
+            <div class="dir-panel hidden" id="dirPanel">
+
+              <!-- HDG — route travel direction -->
+              <div class="dir-row">
+                <span class="dr-label">HDG</span>
+                <svg class="dr-icon" width="22" height="22" viewBox="0 0 22 22">
+                  <circle cx="11" cy="11" r="10" fill="none" stroke="rgba(255,255,255,.18)" stroke-width="1"/>
+                  <g id="drHdgNeedle" transform="rotate(0,11,11)">
+                    <line x1="11" y1="19" x2="11" y2="7" stroke="rgba(255,255,255,.5)" stroke-width="1.5" stroke-linecap="round"/>
+                    <polygon points="11,3 9,8 13,8" fill="#fff"/>
+                  </g>
+                  <circle cx="11" cy="11" r="1.5" fill="rgba(255,255,255,.35)"/>
+                </svg>
+                <span class="dr-val" id="drHdgVal">—</span>
               </div>
+
+              <!-- WIND — absolute wind-from direction + speed (hidden when wind=off) -->
+              <div class="dir-row hidden" id="drWind">
+                <span class="dr-label">WIND</span>
+                <svg class="dr-icon" width="22" height="22" viewBox="0 0 22 22">
+                  <circle cx="11" cy="11" r="10" fill="none" stroke="rgba(255,255,255,.18)" stroke-width="1"/>
+                  <g id="drWindNeedle" transform="rotate(0,11,11)">
+                    <line x1="11" y1="19" x2="11" y2="7" stroke="rgba(96,165,250,.6)" stroke-width="1.5" stroke-linecap="round"/>
+                    <polygon points="11,3 9,8 13,8" fill="#60a5fa"/>
+                  </g>
+                  <circle cx="11" cy="11" r="1.5" fill="rgba(255,255,255,.35)"/>
+                </svg>
+                <div style="display:flex;flex-direction:column;gap:1px">
+                  <span class="dr-val" id="drWindVal">—</span>
+                  <span class="dr-sub" id="drWindSpd"></span>
+                </div>
+              </div>
+
+              <!-- REL — wind angle in rider-relative coordinates (hidden when wind=off) -->
+              <!-- Arrow "up" = rider-forward; small dot marks 12-o'clock reference -->
+              <div class="dir-row hidden" id="drRel">
+                <span class="dr-label">REL</span>
+                <svg class="dr-icon" width="22" height="22" viewBox="0 0 22 22">
+                  <circle cx="11" cy="11" r="10" fill="none" stroke="rgba(255,255,255,.18)" stroke-width="1"/>
+                  <!-- Static rider-forward tick at 12-o'clock -->
+                  <polygon points="11,2 9.5,5.5 12.5,5.5" fill="rgba(255,255,255,.28)"/>
+                  <g id="drRelNeedle" transform="rotate(0,11,11)">
+                    <line id="drRelNeedleLine" x1="11" y1="19" x2="11" y2="7" stroke="#ffa500aa" stroke-width="1.5" stroke-linecap="round"/>
+                    <polygon id="drRelArrow" points="11,3 9,8 13,8" fill="#ffa500"/>
+                  </g>
+                  <circle cx="11" cy="11" r="1.5" fill="rgba(255,255,255,.35)"/>
+                </svg>
+                <div style="display:flex;flex-direction:column;gap:1px">
+                  <span class="dr-val" id="drRelVal">—</span>
+                  <span class="dr-sub" id="drRelLabel" style="color:#ffa500">—</span>
+                </div>
+              </div>
+
             </div>
             <!-- Progress % (top-right) -->
             <div class="sv-overlay-pct hidden" id="ovPct">0%</div>
@@ -490,16 +518,68 @@ function sampleRoute(points, sampleMeters) {
   return out;
 }
 
-function addHeadings(sampled) {
-  return sampled.map((pt, i) => {
-    let h;
-    if (i < sampled.length - 1) {
-      h = bearing(pt, sampled[i + 1]);
-    } else {
-      h = i > 0 ? bearing(sampled[i - 1], pt) : 0;
+// ── Stable route-heading computation ──────────────────────────────
+//
+// Problem with naive i→i+1 bearing: a single noisy or densely-spaced
+// GPX point can flip the displayed heading by 30°+ even on a straight.
+//
+// Solution: two-pass approach.
+//
+// Pass 1 — windowed bearing.
+//   For each point i, compute bearing(pts[i-K], pts[i+K]) where K=2.
+//   This spans 4 sample-intervals (≈2 km at default 500 m spacing),
+//   so individual noisy points do not dominate. Genuine turns are still
+//   captured because K is kept small. Edges are clamped gracefully.
+//
+// Pass 2 — circular-mean smooth [0.25, 0.5, 0.25].
+//   Blends each heading with its two neighbours using a triangular
+//   kernel. Uses true circular mean (unit-vector sum) so the 0°/360°
+//   wrap is handled correctly; 350° and 10° average to 0°, not 180°.
+//
+const HDG_WINDOW = 2;
+
+function circularMeanDeg(angles, weights) {
+  let sx = 0, sy = 0, wSum = 0;
+  for (let i = 0; i < angles.length; i++) {
+    const w = weights ? weights[i] : 1;
+    const r = angles[i] * Math.PI / 180;
+    sx += Math.cos(r) * w;
+    sy += Math.sin(r) * w;
+    wSum += w;
+  }
+  return ((Math.atan2(sy / wSum, sx / wSum) * 180 / Math.PI) + 360) % 360;
+}
+
+function computeRouteHeadings(pts) {
+  const n = pts.length;
+  if (n === 0) return [];
+  if (n === 1) return [0];
+
+  // Pass 1: windowed bearings
+  const raw = pts.map((_, i) => {
+    const fi = Math.max(0, i - HDG_WINDOW);
+    const ti = Math.min(n - 1, i + HDG_WINDOW);
+    if (fi === ti) {
+      return i < n - 1 ? bearing(pts[i], pts[i + 1])
+           : i > 0     ? bearing(pts[i - 1], pts[i])
+           : 0;
     }
-    return { ...pt, heading: Math.round(h) };
+    return bearing(pts[fi], pts[ti]);
   });
+
+  // Pass 2: circular-mean smooth
+  return raw.map((h, i) => {
+    if (i === 0 || i === n - 1) return Math.round(h);
+    return Math.round(circularMeanDeg(
+      [raw[i - 1], h, raw[i + 1]],
+      [0.25, 0.5, 0.25]
+    ));
+  });
+}
+
+function addHeadings(sampled) {
+  const headings = computeRouteHeadings(sampled);
+  return sampled.map((pt, i) => ({ ...pt, heading: headings[i] }));
 }
 
 function calcGradient(idx) {
@@ -543,13 +623,27 @@ function kmhToBeaufort(kmh) {
   return 0;
 }
 
-// heading: route direction (degrees), windDir: direction wind comes FROM (degrees)
-function classifyWindRelativeToHeading(heading, windDir) {
-  const rel = normalizeAngle(windDir - heading);
-  if (rel < 45 || rel >= 315) return { label: 'Headwind',  icon: '↑', color: '#ff6b6b' };
-  if (rel < 135)              return { label: 'Cross →',   icon: '→', color: '#ffa500' };
-  if (rel < 225)              return { label: 'Tailwind',  icon: '↓', color: '#4ade80' };
-  return                             { label: 'Cross ←',   icon: '←', color: '#ffa500' };
+// 8-sector relative wind classification.
+// rel = normalizeAngle(windFromDir - heading)
+// rel = 0°  → wind from directly ahead  → Headwind
+// rel = 90° → wind from rider's right   → Crosswind Right
+// rel = 180°→ wind from directly behind → Tailwind
+// Sectors are 45° wide, centred on 0°, 45°, 90°, … 315°.
+const REL_SECTORS = [
+  { label: 'Headwind',     color: '#ff6b6b' },  // 0
+  { label: 'Front-Right',  color: '#ff8c42' },  // 45
+  { label: 'Crosswind R',  color: '#ffa500' },  // 90
+  { label: 'Rear-Right',   color: '#c5e85a' },  // 135
+  { label: 'Tailwind',     color: '#4ade80' },  // 180
+  { label: 'Rear-Left',    color: '#c5e85a' },  // 225
+  { label: 'Crosswind L',  color: '#ffa500' },  // 270
+  { label: 'Front-Left',   color: '#ff8c42' },  // 315
+];
+
+function classifyRelativeWind(heading, windFromDir) {
+  const rel    = normalizeAngle(windFromDir - heading);
+  const sector = Math.round(rel / 45) % 8;
+  return { rel, ...REL_SECTORS[sector] };
 }
 
 function isDateInForecastRange(date) {
@@ -632,11 +726,11 @@ async function rebuildWindData() {
     state.windData = [];
     setWindForecastStatus('error', '✗ Wind data unavailable');
   }
-  if (state.sampled.length) updateWindOverlay(state.currentIdx);
+  if (state.sampled.length) updateDirPanel(state.currentIdx);
 }
 
 // ═══════════════════════════════════════════════════════════════════
-// Wind — overlay rendering
+// Wind — data access
 // ═══════════════════════════════════════════════════════════════════
 function getCurrentWindForIdx(idx) {
   if (state.windMode === 'off') return null;
@@ -650,25 +744,48 @@ function getCurrentWindForIdx(idx) {
   return null;
 }
 
-function updateWindOverlay(idx) {
-  const ovWind = document.getElementById('ovWind');
-  if (!ovWind) return;
-  const wind = getCurrentWindForIdx(idx);
-  if (!wind || !state.sampled.length) { ovWind.classList.add('hidden'); return; }
+// ═══════════════════════════════════════════════════════════════════
+// Directional panel — unified HDG / WIND / REL overlay
+// ═══════════════════════════════════════════════════════════════════
+function updateDirPanel(idx) {
+  const panel = document.getElementById('dirPanel');
+  if (!panel || !state.sampled.length) return;
 
-  ovWind.classList.remove('hidden');
   const pt = state.sampled[idx];
-  const heading = pt ? pt.heading : 0;
-  const cls = classifyWindRelativeToHeading(heading, wind.direction);
-  const cardinal = directionToCardinal(wind.direction);
+  const h  = pt.heading || 0;
 
-  // Rotate arrow to point FROM source direction
-  document.getElementById('windArrowGroup')
-    .setAttribute('transform', `rotate(${wind.direction},14,14)`);
-  document.getElementById('windSpeedText').textContent = `${wind.speed} km/h ${cardinal}`;
-  const classEl = document.getElementById('windClassText');
-  classEl.textContent = `${cls.icon} ${cls.label}`;
-  classEl.style.color = cls.color;
+  // HDG row — always visible when panel is shown
+  document.getElementById('drHdgNeedle').setAttribute('transform', `rotate(${h},11,11)`);
+  document.getElementById('drHdgVal').textContent = `${h}°\u00A0${directionToCardinal(h)}`;
+
+  // WIND + REL rows — only when wind data is available
+  const wind    = getCurrentWindForIdx(idx);
+  const hasWind = !!wind;
+
+  document.getElementById('drWind').classList.toggle('hidden', !hasWind);
+  document.getElementById('drRel').classList.toggle('hidden', !hasWind);
+
+  if (hasWind) {
+    const wDir = wind.direction;
+    const wSpd = wind.speed;
+
+    // WIND row — geographic compass, arrow points FROM source direction
+    document.getElementById('drWindNeedle').setAttribute('transform', `rotate(${wDir},11,11)`);
+    document.getElementById('drWindVal').textContent =
+      `${wDir}°\u00A0${directionToCardinal(wDir)}`;
+    document.getElementById('drWindSpd').textContent = `${wSpd}\u00A0km/h`;
+
+    // REL row — rider-relative: 0° = headwind, 90° = crosswind right, 180° = tailwind
+    const cls    = classifyRelativeWind(h, wDir);
+    const relDeg = Math.round(cls.rel);
+    document.getElementById('drRelNeedle').setAttribute('transform', `rotate(${relDeg},11,11)`);
+    document.getElementById('drRelArrow').setAttribute('fill', cls.color);
+    document.getElementById('drRelNeedleLine').setAttribute('stroke', cls.color + 'aa');
+    document.getElementById('drRelVal').textContent = `${relDeg}°`;
+    const lbl = document.getElementById('drRelLabel');
+    lbl.textContent  = cls.label;
+    lbl.style.color  = cls.color;
+  }
 }
 
 // ═══════════════════════════════════════════════════════════════════
@@ -686,8 +803,7 @@ function setWindMode(mode) {
     rebuildWindData();
   } else {
     state.windData = [];
-    if (state.sampled.length) updateWindOverlay(state.currentIdx);
-    else document.getElementById('ovWind').classList.add('hidden');
+    if (state.sampled.length) updateDirPanel(state.currentIdx);
   }
 }
 
@@ -707,20 +823,20 @@ function setWindUnit(unit) {
   document.getElementById('wuKmh').classList.toggle('active', unit === 'kmh');
   document.getElementById('wuBft').classList.toggle('active', unit === 'bft');
   updateManualWindHint();
-  if (state.sampled.length) updateWindOverlay(state.currentIdx);
+  if (state.sampled.length) updateDirPanel(state.currentIdx);
 }
 
 function onManualWindSpeedChange(val) {
   state.manualWind.speed = parseFloat(val) || 0;
   updateManualWindHint();
-  if (state.sampled.length) updateWindOverlay(state.currentIdx);
+  if (state.sampled.length) updateDirPanel(state.currentIdx);
 }
 
 function onManualWindDirChange(val) {
   const dir = Math.round(normalizeAngle(parseFloat(val) || 0));
   state.manualWind.direction = dir;
   document.getElementById('manualWindDirCardinal').textContent = directionToCardinal(dir);
-  if (state.sampled.length) updateWindOverlay(state.currentIdx);
+  if (state.sampled.length) updateDirPanel(state.currentIdx);
 }
 
 function updateManualWindHint() {
@@ -996,11 +1112,6 @@ async function goTo(idx) {
   document.getElementById('ovPct').textContent = `${Math.round(pct)}%`;
   document.getElementById('ovBarFill').style.width = pct + '%';
 
-  // Update heading compass
-  const h = pt.heading || 0;
-  document.getElementById('compassNeedle').setAttribute('transform', `rotate(${h},12,12)`);
-  document.getElementById('headingText').textContent = `${h}° ${headingToCardinal(h)}`;
-
   // Update gradient
   const grad = calcGradient(idx);
   const absGrad = Math.abs(grad);
@@ -1008,6 +1119,9 @@ async function goTo(idx) {
   const sign = grad > 0.2 ? '▲' : grad < -0.2 ? '▼' : '—';
   gradEl.textContent = `${sign} ${absGrad.toFixed(1)}%`;
   gradEl.style.color = absGrad >= 8 ? '#ff5555' : absGrad >= 5 ? '#ffa500' : absGrad >= 2 ? '#ffd700' : '#fff';
+
+  // Update directional panel (heading + wind) — before image fetch for instant feedback
+  updateDirPanel(idx);
 
   // Update map marker
   updateMapMarker(idx);
@@ -1042,8 +1156,6 @@ async function goTo(idx) {
     ph.classList.remove('hidden');
     svNoCov.classList.add('hidden');
   }
-
-  updateWindOverlay(idx);
 }
 
 // ═══════════════════════════════════════════════════════════════════
@@ -1124,11 +1236,10 @@ function processSampled() {
 }
 
 function showOverlays(show) {
-  ['ovDist','ovPct','ovBar','ovGrad','ovHeading'].forEach(id =>
+  ['ovDist','ovPct','ovBar','ovGrad'].forEach(id =>
     document.getElementById(id).classList.toggle('hidden', !show));
+  document.getElementById('dirPanel').classList.toggle('hidden', !show);
   document.getElementById('mapInset').classList.toggle('hidden', !show);
-  // Wind overlay: only visible when route loaded AND wind mode is active
-  if (!show) document.getElementById('ovWind').classList.add('hidden');
   if (show && leafletMap) setTimeout(() => leafletMap.invalidateSize(), 100);
 }
 
