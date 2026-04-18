@@ -119,7 +119,9 @@ input#gpxFile{display:none}
 .sv-placeholder .big{font-size:48px}
 
 /* overlay elements */
-.sv-overlay-dist{position:absolute;top:14px;left:14px;background:rgba(10,16,32,.72);color:#fff;padding:6px 12px;border-radius:8px;font-size:14px;font-weight:700;font-family:var(--mono);backdrop-filter:blur(6px);pointer-events:none}
+.sv-overlay-dist{position:absolute;top:14px;left:14px;background:rgba(10,16,32,.72);color:#fff;padding:6px 12px;border-radius:8px;font-family:var(--mono);backdrop-filter:blur(6px);pointer-events:none;display:flex;flex-direction:column;gap:2px}
+.sv-overlay-dist .dist-done{font-size:13px;font-weight:700}
+.sv-overlay-dist .dist-togo{font-size:11px;color:rgba(255,255,255,.55);font-weight:600}
 .sv-overlay-pct{position:absolute;top:14px;right:14px;background:rgba(10,16,32,.72);color:var(--orange);padding:6px 12px;border-radius:8px;font-size:14px;font-weight:700;font-family:var(--mono);backdrop-filter:blur(6px);pointer-events:none}
 .sv-overlay-bar{position:absolute;bottom:0;left:0;right:0;height:5px;background:rgba(255,255,255,.15)}
 .sv-overlay-bar-fill{height:100%;background:var(--orange);transition:width .3s ease}
@@ -250,13 +252,26 @@ input#gpxFile{display:none}
           <button class="wind-mode-btn"         id="wmWeather" onclick="setWindMode('weather')">Weather</button>
         </div>
 
-        <!-- Weather: date picker -->
+        <!-- Weather: date / start time / avg speed -->
         <div id="windDateSection" class="hidden">
           <div class="field">
-            <label>Wind date</label>
+            <label>Race date</label>
             <input type="date" id="windDateInput" class="wind-num-input" style="font-size:13px" onchange="onWindDateChange(this.value)">
-            <div id="windForecastStatus" class="wind-chip" style="display:none"></div>
           </div>
+          <div style="display:flex;gap:8px">
+            <div class="field" style="flex:1">
+              <label>Start time</label>
+              <input type="time" id="windStartTimeInput" class="wind-num-input" style="font-size:13px" value="09:00" onchange="onWindStartTimeChange(this.value)">
+            </div>
+            <div class="field" style="flex:1">
+              <label>Avg speed</label>
+              <div style="display:flex;gap:5px;align-items:center">
+                <input type="number" id="avgSpeedInput" class="wind-num-input" min="10" max="80" value="32" oninput="onAvgSpeedChange(this.value)">
+                <span style="color:var(--sub);font-size:12px;white-space:nowrap">km/h</span>
+              </div>
+            </div>
+          </div>
+          <div id="windForecastStatus" class="wind-chip" style="display:none"></div>
         </div>
 
         <!-- Manual: speed + direction -->
@@ -300,7 +315,7 @@ input#gpxFile{display:none}
             </div>
             <img class="sv-img hidden" id="svImg" alt="Street View">
             <!-- Distance (top-left) -->
-            <div class="sv-overlay-dist hidden" id="ovDist">0.0 km</div>
+            <div class="sv-overlay-dist hidden" id="ovDist"><span class="dist-done">0.00 km</span><span class="dist-togo">To go: —</span></div>
             <!-- Unified directional panel: HDG / WIND / REL -->
             <div class="dir-panel hidden" id="dirPanel">
 
@@ -353,6 +368,12 @@ input#gpxFile{display:none}
                   <span class="dr-val" id="drRelVal">—</span>
                   <span class="dr-sub" id="drRelLabel" style="color:#ffa500">—</span>
                 </div>
+              </div>
+
+              <!-- ETA — estimated passage time (weather mode only) -->
+              <div class="dir-row hidden" id="drEta">
+                <span class="dr-label">ETA</span>
+                <span class="dr-val" id="drEtaVal">—</span>
               </div>
 
             </div>
@@ -431,10 +452,12 @@ const state = {
   fov:         90,
   pendingResample: false,
   // Wind
-  windMode:   'off',
-  windDate:   new Date(),
-  manualWind: { speed: 20, direction: 180, unit: 'kmh' },
-  windData:   [],
+  windMode:       'off',
+  windDate:       new Date(),
+  windStartTime:  '09:00',
+  avgSpeedKmh:    32,
+  manualWind:     { speed: 20, direction: 180, unit: 'kmh' },
+  windData:       [],
 };
 
 // Image cache: index → blob URL
@@ -669,6 +692,30 @@ function classifyRelativeWind(heading, windFromDir) {
   return { delta, absDelta, label, color };
 }
 
+// Circular interpolation — goes the short way round the 0°/360° boundary.
+function interpolateAngle(a, b, t) {
+  const diff = ((b - a + 540) % 360) - 180;
+  return ((a + diff * t) + 360) % 360;
+}
+
+// Combine a Date object (date part only) with a "HH:MM" string to produce a full Date.
+function combineDateAndTime(dateObj, timeStr) {
+  const [h, m] = timeStr.split(':').map(Number);
+  const d = new Date(dateObj);
+  d.setHours(h, m, 0, 0);
+  return d;
+}
+
+// Estimate the wall-clock arrival time at each sampled point.
+// Returns an array of Date objects parallel to sampledPoints.
+function estimateArrivalTimes(sampledPoints, startDateTime, avgSpeedKmh) {
+  const avgSpeedMs = (avgSpeedKmh * 1000) / 3600;
+  return sampledPoints.map(pt => {
+    const secs = pt.dist / avgSpeedMs;
+    return new Date(startDateTime.getTime() + secs * 1000);
+  });
+}
+
 function isDateInForecastRange(date) {
   const today = new Date(); today.setHours(0, 0, 0, 0);
   const d = new Date(date); d.setHours(0, 0, 0, 0);
@@ -684,25 +731,46 @@ function dateToYMD(date) {
 // Wind — weather data layer
 // ═══════════════════════════════════════════════════════════════════
 //
-// ─── WEATHER API PLACEHOLDER ──────────────────────────────────────
-// To use a real forecast, implement fetchForecastForPoint below.
-// It receives (lat, lon, dateStr "YYYY-MM-DD") and must return
-//   { speed: number (km/h), direction: number (0–359, coming FROM) }
-// or null to fall back to the deterministic mock.
-//
-// Example — Open-Meteo (free, no key required):
-//   const url = `https://api.open-meteo.com/v1/forecast`
-//     + `?latitude=${lat}&longitude=${lon}`
-//     + `&hourly=windspeed_10m,winddirection_10m`
-//     + `&wind_speed_unit=kmh&timezone=auto`
-//     + `&start_date=${dateStr}&end_date=${dateStr}`;
-//   const data = await fetch(url).then(r => r.json());
-//   const noonIdx = 12; // 12:00 local time slot
-//   return { speed: data.hourly.windspeed_10m[noonIdx],
-//            direction: data.hourly.winddirection_10m[noonIdx] };
-// ──────────────────────────────────────────────────────────────────
-async function fetchForecastForPoint(lat, lon, dateStr) {
-  return null; // returning null triggers mock fallback
+// Fetch full hourly wind forecast from Open-Meteo for one lat/lon.
+// Returns { times: number[] (ms), speeds: number[], directions: number[] }
+// or null on any failure.
+async function fetchHourlyForecast(lat, lon, startDateStr, endDateStr) {
+  try {
+    const url = 'https://api.open-meteo.com/v1/forecast'
+      + `?latitude=${lat.toFixed(4)}&longitude=${lon.toFixed(4)}`
+      + `&hourly=windspeed_10m,winddirection_10m`
+      + `&wind_speed_unit=kmh&timezone=auto`
+      + `&start_date=${startDateStr}&end_date=${endDateStr}`;
+    const resp = await fetch(url);
+    if (!resp.ok) return null;
+    const data = await resp.json();
+    if (!data.hourly?.time?.length) return null;
+    return {
+      times:      data.hourly.time.map(t => new Date(t).getTime()),
+      speeds:     data.hourly.windspeed_10m,
+      directions: data.hourly.winddirection_10m,
+    };
+  } catch {
+    return null;
+  }
+}
+
+// Interpolate wind from a hourly forecast object at a given Date.
+function getWindAtTime(forecast, targetDate) {
+  const ms = targetDate.getTime();
+  const { times, speeds, directions } = forecast;
+  if (ms <= times[0]) return { speed: speeds[0], direction: directions[0] };
+  const last = times.length - 1;
+  if (ms >= times[last]) return { speed: speeds[last], direction: directions[last] };
+  let lo = 0;
+  for (let i = 0; i < last; i++) {
+    if (times[i] <= ms && ms < times[i + 1]) { lo = i; break; }
+  }
+  const t = (ms - times[lo]) / (times[lo + 1] - times[lo]);
+  return {
+    speed:     speeds[lo]     + (speeds[lo + 1]     - speeds[lo])     * t,
+    direction: interpolateAngle(directions[lo], directions[lo + 1], t),
+  };
 }
 
 function mockWindForPoint(date, idx, totalPoints) {
@@ -720,14 +788,78 @@ function mockWindForPoint(date, idx, totalPoints) {
   };
 }
 
-async function buildWindDataset(sampledPoints, date) {
-  const dateStr = dateToYMD(date);
+// Build a wind reading for every sampled point using time-based anchor fetching.
+// Strategy:
+//   1. Pick up to NUM_ANCHORS evenly-spaced points along the route.
+//   2. Fetch the full hourly Open-Meteo forecast for each anchor in parallel.
+//   3. For each sampled point, find the two surrounding anchors, look up wind
+//      at the estimated arrival time from each, then interpolate geographically.
+//   4. Fall back to the deterministic mock when no real data is available.
+const NUM_ANCHORS = 15;
+
+async function buildWindDataset(sampledPoints, raceStartDateTime, avgSpeedKmh) {
+  const n = sampledPoints.length;
+  if (!n) return [];
+
+  // Date range: race start → estimated finish + 1 h buffer
+  const totalDistKm = sampledPoints[n - 1].dist / 1000;
+  const raceHours   = totalDistKm / avgSpeedKmh;
+  const endDT       = new Date(raceStartDateTime.getTime() + (raceHours + 1) * 3600000);
+  const startDateStr = dateToYMD(raceStartDateTime);
+  const endDateStr   = dateToYMD(endDT);
+
+  // Build evenly-spaced anchor index list (deduplicated)
+  const anchorCount = Math.min(NUM_ANCHORS, n);
+  const anchorIndices = [...new Set(
+    Array.from({ length: anchorCount }, (_, k) => Math.round((k / (anchorCount - 1)) * (n - 1)))
+  )];
+
+  // Fetch forecasts in parallel
+  const forecasts = await Promise.all(
+    anchorIndices.map(ai =>
+      fetchHourlyForecast(sampledPoints[ai].lat, sampledPoints[ai].lon, startDateStr, endDateStr)
+    )
+  );
+
+  const anyReal = forecasts.some(Boolean);
+
+  // Per-point arrival times
+  const arrivalTimes = estimateArrivalTimes(sampledPoints, raceStartDateTime, avgSpeedKmh);
+
   const result = [];
-  for (let i = 0; i < sampledPoints.length; i++) {
-    const pt = sampledPoints[i];
-    let w = await fetchForecastForPoint(pt.lat, pt.lon, dateStr);
-    if (!w) w = mockWindForPoint(date, i, sampledPoints.length);
-    result.push(w);
+  for (let i = 0; i < n; i++) {
+    if (!anyReal) {
+      result.push(mockWindForPoint(raceStartDateTime, i, n));
+      continue;
+    }
+
+    // Find surrounding anchors
+    let loJ = 0, hiJ = anchorIndices.length - 1;
+    for (let j = 0; j < anchorIndices.length - 1; j++) {
+      if (anchorIndices[j] <= i && i <= anchorIndices[j + 1]) { loJ = j; hiJ = j + 1; break; }
+    }
+    const loFc = forecasts[loJ], hiFc = forecasts[hiJ];
+    const span = anchorIndices[hiJ] - anchorIndices[loJ];
+    const t    = span === 0 ? 0 : (i - anchorIndices[loJ]) / span;
+    const eta  = arrivalTimes[i];
+
+    let wind;
+    if (loFc && hiFc) {
+      const loW = getWindAtTime(loFc, eta);
+      const hiW = getWindAtTime(hiFc, eta);
+      wind = {
+        speed:     loW.speed     + (hiW.speed     - loW.speed)     * t,
+        direction: interpolateAngle(loW.direction, hiW.direction, t),
+      };
+    } else if (loFc) {
+      wind = getWindAtTime(loFc, eta);
+    } else if (hiFc) {
+      wind = getWindAtTime(hiFc, eta);
+    } else {
+      wind = mockWindForPoint(raceStartDateTime, i, n);
+    }
+
+    result.push({ speed: Math.round(wind.speed), direction: Math.round(normalizeAngle(wind.direction)) });
   }
   return result;
 }
@@ -739,8 +871,10 @@ async function rebuildWindData() {
   }
   setWindForecastStatus('loading', '⏳ Fetching forecast…');
   try {
-    state.windData = await buildWindDataset(state.sampled, state.windDate);
-    if (isDateInForecastRange(state.windDate)) {
+    const startDT = combineDateAndTime(state.windDate, state.windStartTime);
+    state.windData = await buildWindDataset(state.sampled, startDT, state.avgSpeedKmh);
+    const usingReal = state.windData.length && isDateInForecastRange(state.windDate);
+    if (usingReal) {
       setWindForecastStatus('ok', `✓ Forecast loaded · ${state.sampled.length} pts`);
     } else {
       setWindForecastStatus('warn', '⚠ Date outside 14-day window — using estimate');
@@ -812,9 +946,21 @@ function updateDirPanel(idx) {
     lbl.textContent = cls.label;
     lbl.style.color = cls.color;
 
-    // Debug — verify in browser console
     console.debug('[Wind] HDG=%d° | WIND_FROM=%d° | WIND_TO=%d° | delta=%d° | %s',
       h, wDir, windTo, Math.round(cls.delta), cls.label);
+  }
+
+  // ETA row — only in weather mode
+  const etaRow = document.getElementById('drEta');
+  if (state.windMode === 'weather' && state.sampled.length) {
+    const startDT  = combineDateAndTime(state.windDate, state.windStartTime);
+    const avgSpeedMs = (state.avgSpeedKmh * 1000) / 3600;
+    const eta = new Date(startDT.getTime() + (pt.dist / avgSpeedMs) * 1000);
+    document.getElementById('drEtaVal').textContent =
+      eta.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    etaRow.classList.remove('hidden');
+  } else {
+    etaRow.classList.add('hidden');
   }
 }
 
@@ -882,12 +1028,22 @@ function updateManualWindHint() {
 
 function onWindDateChange(val) {
   if (!val) return;
-  const date = new Date(val + 'T12:00:00');
-  state.windDate = date;
-  if (!isDateInForecastRange(date)) {
-    setWindForecastStatus('warn', '⚠ Date outside 14-day window — using estimate');
-  }
+  state.windDate = new Date(val + 'T12:00:00');
   rebuildWindData();
+}
+
+function onWindStartTimeChange(val) {
+  if (!val) return;
+  state.windStartTime = val;
+  rebuildWindData();
+}
+
+function onAvgSpeedChange(val) {
+  const spd = parseFloat(val);
+  if (!isNaN(spd) && spd > 0) {
+    state.avgSpeedKmh = spd;
+    rebuildWindData();
+  }
 }
 
 function setWindForecastStatus(type, msg) {
@@ -907,6 +1063,10 @@ function initWindUI() {
   dateInput.max   = dateToYMD(maxDay);
   dateInput.value = todayStr;
   state.windDate  = new Date(todayStr + 'T12:00:00');
+
+  document.getElementById('windStartTimeInput').value = state.windStartTime;
+  document.getElementById('avgSpeedInput').value = state.avgSpeedKmh;
+
   updateManualWindHint();
   document.getElementById('manualWindDirCardinal').textContent =
     directionToCardinal(state.manualWind.direction);
@@ -1138,7 +1298,11 @@ async function goTo(idx) {
     `${(pt.dist/1000).toFixed(1)} / ${(total/1000).toFixed(1)} km`;
 
   // Update overlays
-  document.getElementById('ovDist').textContent = `${(pt.dist/1000).toFixed(2)} km`;
+  const doneDist = (pt.dist / 1000).toFixed(2);
+  const toGoDist = ((total - pt.dist) / 1000).toFixed(2);
+  const ovDist = document.getElementById('ovDist');
+  ovDist.querySelector('.dist-done').textContent = `${doneDist} km`;
+  ovDist.querySelector('.dist-togo').textContent = `To go: ${toGoDist} km`;
   document.getElementById('ovPct').textContent = `${Math.round(pct)}%`;
   document.getElementById('ovBarFill').style.width = pct + '%';
 
