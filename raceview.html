@@ -1335,13 +1335,13 @@ function togglePlay() {
 function playPlayer() {
   if (!state.sampled.length) return;
   state.playing = true;
-  document.getElementById('playBtn').textContent = '⏸';
+  // play button removed from UI
   scheduleNext();
 }
 
 function pausePlayer() {
   state.playing = false;
-  document.getElementById('playBtn').textContent = '▶';
+  // play button removed from UI
   clearTimeout(playerTimer);
 }
 
@@ -1494,7 +1494,7 @@ function processSampled() {
 
   state.currentIdx = 0;
   state.playing = false;
-  document.getElementById('playBtn').textContent = '▶';
+  // play button removed from UI
 
   // Update stats
   document.getElementById('statDist').textContent = (state.totalDist / 1000).toFixed(1);
