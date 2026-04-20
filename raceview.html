@@ -92,11 +92,14 @@ input#gpxFile{display:none}
 .viewer-card{padding:0;overflow:hidden}
 .viewer-content{padding:16px}
 
-/* ── Map inset overlay ──────────────────────────────────────────── */
-.sv-map-wrap{position:absolute;bottom:14px;right:14px;width:290px;height:185px;border-radius:7px;border:2px solid rgba(255,255,255,.35);z-index:10;box-shadow:0 2px 14px rgba(0,0,0,.5);overflow:visible}
-#mapInset{width:100%;height:100%;border-radius:5px;overflow:hidden;cursor:crosshair}
+/* ── Viewer layout: Street View + Map side by side ─────────────── */
+.viewer-top{display:flex;gap:12px;align-items:stretch}
+.sv-pane{flex:1;min-width:0}
+.map-pane{width:200px;flex-shrink:0;border-radius:8px;overflow:hidden;background:#0a1020;position:relative;min-height:160px}
+.map-pane #mapInset{width:100%;height:100%;cursor:crosshair}
 .map-home-btn{position:absolute;top:6px;right:6px;width:22px;height:22px;background:rgba(10,16,32,.78);border:none;border-radius:4px;color:#fff;font-size:14px;cursor:pointer;line-height:1;backdrop-filter:blur(6px);z-index:20;display:flex;align-items:center;justify-content:center;transition:background .15s}
 .map-home-btn:hover{background:rgba(31,59,136,.95)}
+@media(max-width:900px){.viewer-top{flex-direction:column}.map-pane{width:100%;height:180px}}
 
 /* ── Unified directional panel (HDG / WIND / REL) ──────────────── */
 .dir-panel{position:absolute;top:52px;left:14px;background:rgba(10,16,32,.78);border-radius:8px;backdrop-filter:blur(8px);pointer-events:none;overflow:hidden;min-width:170px}
@@ -106,19 +109,15 @@ input#gpxFile{display:none}
 .dr-label{font-size:9px;font-weight:800;letter-spacing:.9px;text-transform:uppercase;color:rgba(255,255,255,.38);min-width:28px;font-family:var(--mono)}
 .dr-val{font-size:12px;font-weight:700;color:#fff;white-space:nowrap;font-family:var(--mono)}
 .dr-sub{font-size:10px;color:rgba(255,255,255,.48);font-family:var(--mono);white-space:nowrap;line-height:1.3}
-/* REL row — hero section, primary eye-catcher */
-#drRel{padding:10px 14px 10px 10px;border-top:1px solid rgba(255,255,255,.1);transition:background .35s ease}
-#drRel .dr-label{color:rgba(255,255,255,.8);font-size:10px;letter-spacing:1px}
-#drRel .dr-val{font-size:22px;font-weight:800;letter-spacing:-.5px;line-height:1}
-#drRel .dr-sub{font-size:13px;font-weight:700;margin-top:2px}
-#drRel .dr-icon line{stroke-width:2.5}
+/* REL row */
+#drRel{transition:background .35s ease}
 /* TEMP/RAIN row */
 #drTempRain{gap:0;padding:5px 12px 5px 10px}
 #drTempRain .dr-label{min-width:30px}
 .dr-divider{width:1px;background:rgba(255,255,255,.1);align-self:stretch;margin:0 8px}
 
 /* ── Gradient overlay ───────────────────────────────────────────── */
-.sv-overlay-grad{position:absolute;bottom:14px;left:14px;background:rgba(10,16,32,.72);color:#fff;padding:6px 12px;border-radius:8px;font-size:14px;font-weight:700;font-family:var(--mono);backdrop-filter:blur(6px);pointer-events:none}
+.sv-overlay-grad{position:absolute;bottom:14px;left:14px;background:rgba(10,16,32,.72);color:#fff;padding:6px 12px;border-radius:8px;font-size:14px;font-weight:700;font-family:var(--mono);backdrop-filter:blur(6px);pointer-events:none;display:flex;align-items:center;gap:6px}
 
 /* ── Street View pane ──────────────────────────────────────────── */
 .sv-wrap{position:relative;border-radius:8px;overflow:hidden;background:#0a1020;aspect-ratio:16/9}
@@ -153,9 +152,13 @@ input#gpxFile{display:none}
 
 /* ── Elevation strip ───────────────────────────────────────────── */
 .elev-strip{padding:0 16px 14px;position:relative}
-.elev-strip svg{width:100%;height:80px;display:block;border-radius:6px;overflow:visible}
-.elev-strip .elev-label{display:flex;justify-content:space-between;font-size:10px;color:var(--sub);margin-top:3px;font-family:var(--mono)}
-.elev-cursor{position:absolute;top:0;bottom:22px;width:2px;background:var(--orange);pointer-events:none;transition:left .3s ease;border-radius:1px}
+.elev-strip svg{width:100%;height:80px;display:block;border-radius:6px;overflow:visible;cursor:crosshair}
+.elev-info-row{display:flex;justify-content:space-between;align-items:center;padding:3px 0 2px;font-size:11px;font-family:var(--mono)}
+.elev-info-done{color:var(--blue);font-weight:700}
+.elev-info-mid{color:var(--sub);font-size:10px}
+.elev-info-togo{color:var(--sub);text-align:right}
+.elev-strip .elev-label{display:flex;justify-content:space-between;font-size:10px;color:var(--sub);margin-top:2px;font-family:var(--mono)}
+.elev-cursor{position:absolute;top:0;bottom:44px;width:2px;background:var(--orange);pointer-events:none;transition:left .1s ease;border-radius:1px}
 
 /* ── Footer ────────────────────────────────────────────────────── */
 .footer{text-align:center;padding:24px;font-size:12px;color:var(--sub)}
@@ -314,9 +317,10 @@ input#gpxFile{display:none}
     <div>
       <div class="card viewer-card" id="viewerCard">
 
-        <!-- Combined Street View + Map inset -->
+        <!-- Street View + Map panel -->
         <div class="viewer-content">
-          <div class="sv-wrap" id="svWrap">
+          <div class="viewer-top">
+          <div class="sv-pane"><div class="sv-wrap" id="svWrap">
             <div class="sv-placeholder" id="svPlaceholder">
               <div class="big">🏔️</div>
               <div>Load a GPX file to begin the ride-through</div>
@@ -362,15 +366,11 @@ input#gpxFile{display:none}
               <!-- Triangle at top = rider-forward. Headwind: arrow↓. Tailwind: arrow↑ -->
               <div class="dir-row hidden" id="drRel">
                 <span class="dr-label">REL</span>
-                <svg class="dr-icon" width="36" height="36" viewBox="0 0 22 22">
-                  <circle cx="11" cy="11" r="10" fill="none" stroke="rgba(255,255,255,.22)" stroke-width="1"/>
-                  <!-- Static rider-forward tick at 12-o'clock -->
-                  <polygon points="11,1.5 9,6 13,6" fill="rgba(255,255,255,.35)"/>
-                  <g id="drRelNeedle" transform="rotate(0,11,11)">
-                    <line id="drRelNeedleLine" x1="11" y1="19" x2="11" y2="6" stroke="#ffa500aa" stroke-width="2" stroke-linecap="round"/>
-                    <polygon id="drRelArrow" points="11,2.5 8.5,8 13.5,8" fill="#ffa500"/>
+                <svg class="dr-icon" width="18" height="18" viewBox="0 0 18 18">
+                  <g id="drRelNeedle" transform="rotate(0,9,9)">
+                    <line id="drRelNeedleLine" x1="9" y1="16" x2="9" y2="5" stroke="#ffa500aa" stroke-width="2" stroke-linecap="round"/>
+                    <polygon id="drRelArrow" points="9,2 6.5,7 11.5,7" fill="#ffa500"/>
                   </g>
-                  <circle cx="11" cy="11" r="1.8" fill="rgba(255,255,255,.4)"/>
                 </svg>
                 <div style="display:flex;flex-direction:column;gap:3px">
                   <span class="dr-val" id="drRelVal">—</span>
@@ -378,10 +378,13 @@ input#gpxFile{display:none}
                 </div>
               </div>
 
-              <!-- TEMP + RAIN — weather mode only -->
+              <!-- TEMP + HUMIDITY + RAIN — weather mode only -->
               <div class="dir-row hidden" id="drTempRain">
                 <span class="dr-label">🌡</span>
                 <span class="dr-val" id="drTempVal" style="font-size:11px">—</span>
+                <div class="dr-divider"></div>
+                <span class="dr-label">💧</span>
+                <span class="dr-val" id="drHumVal" style="font-size:11px">—</span>
                 <div class="dr-divider"></div>
                 <span class="dr-label">🌧</span>
                 <span class="dr-val" id="drRainVal" style="font-size:11px">—</span>
@@ -394,22 +397,35 @@ input#gpxFile{display:none}
               </div>
 
             </div>
-            <!-- Gradient (bottom-left) -->
-            <div class="sv-overlay-grad hidden" id="ovGrad">— %</div>
+            <!-- Gradient (bottom-left) with visual ramp -->
+            <div class="sv-overlay-grad hidden" id="ovGrad">
+              <svg width="28" height="16" viewBox="0 0 28 16" style="flex-shrink:0">
+                <polygon id="gradFillPoly" points="0,16 28,16 28,8 0,8" fill="rgba(255,255,255,.12)"/>
+                <line id="gradRampLine" x1="0" y1="8" x2="28" y2="8" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"/>
+                <circle id="gradRampDot" cx="28" cy="8" r="2" fill="currentColor"/>
+              </svg>
+              <span id="gradText">—</span>
+            </div>
             <!-- Progress bar -->
             <div class="sv-overlay-bar hidden" id="ovBar"><div class="sv-overlay-bar-fill" id="ovBarFill" style="width:0%"></div></div>
-            <!-- Map inset (bottom-right) — click to jump to that point -->
-            <div class="sv-map-wrap hidden" id="mapWrap">
-              <div id="mapInset"></div>
-              <button class="map-home-btn" id="mapHomeBtn" onclick="mapFitRoute()" title="Fit full route">⌂</button>
-            </div>
             <div class="sv-loading hidden" id="svLoading"><div class="spin"></div> Loading imagery…</div>
             <div class="sv-no-cover hidden" id="svNoCover">No Street View coverage at this location</div>
+          </div></div><!-- /sv-wrap /sv-pane -->
+          <!-- Map side panel — shown when route is loaded -->
+          <div class="map-pane hidden" id="mapPane">
+            <div id="mapInset" style="width:100%;height:100%"></div>
+            <button class="map-home-btn" onclick="mapFitRoute()" title="Fit route">⌂</button>
           </div>
+          </div><!-- /viewer-top -->
 
-          <!-- Elevation strip -->
+          <!-- Elevation strip — drag/click to navigate -->
           <div class="elev-strip" id="elevStrip">
             <svg id="elevSvg" viewBox="0 0 800 80" preserveAspectRatio="none"></svg>
+            <div class="elev-info-row">
+              <span class="elev-info-done" id="elevInfoDone"></span>
+              <span class="elev-info-mid" id="elevInfoMid"></span>
+              <span class="elev-info-togo" id="elevInfoTogo"></span>
+            </div>
             <div class="elev-label"><span id="elevMin">—</span><span id="elevMax">—</span></div>
             <div class="elev-cursor hidden" id="elevCursor"></div>
           </div>
@@ -746,7 +762,7 @@ async function fetchHourlyForecast(lat, lon, startDateStr, endDateStr) {
   try {
     const url = 'https://api.open-meteo.com/v1/forecast'
       + `?latitude=${lat.toFixed(4)}&longitude=${lon.toFixed(4)}`
-      + `&hourly=windspeed_10m,winddirection_10m,temperature_2m,precipitation`
+      + `&hourly=windspeed_10m,winddirection_10m,temperature_2m,precipitation,relativehumidity_2m`
       + `&wind_speed_unit=kmh&timezone=auto`
       + `&start_date=${startDateStr}&end_date=${endDateStr}`;
     const resp = await fetch(url);
@@ -759,6 +775,7 @@ async function fetchHourlyForecast(lat, lon, startDateStr, endDateStr) {
       directions: data.hourly.winddirection_10m,
       temps:      data.hourly.temperature_2m,
       precips:    data.hourly.precipitation,
+      humidities: data.hourly.relativehumidity_2m,
     };
   } catch {
     return null;
@@ -768,13 +785,13 @@ async function fetchHourlyForecast(lat, lon, startDateStr, endDateStr) {
 // Interpolate wind (+ temp + precip) from a hourly forecast at a given Date.
 function getWindAtTime(forecast, targetDate) {
   const ms = targetDate.getTime();
-  const { times, speeds, directions, temps, precips } = forecast;
+  const { times, speeds, directions, temps, precips, humidities } = forecast;
   const lerp = (a, b, t) => a + (b - a) * t;
   if (ms <= times[0]) return { speed: speeds[0], direction: directions[0],
-    temp: temps?.[0] ?? null, precip: precips?.[0] ?? null };
+    temp: temps?.[0] ?? null, precip: precips?.[0] ?? null, humidity: humidities?.[0] ?? null };
   const last = times.length - 1;
   if (ms >= times[last]) return { speed: speeds[last], direction: directions[last],
-    temp: temps?.[last] ?? null, precip: precips?.[last] ?? null };
+    temp: temps?.[last] ?? null, precip: precips?.[last] ?? null, humidity: humidities?.[last] ?? null };
   let lo = 0;
   for (let i = 0; i < last; i++) {
     if (times[i] <= ms && ms < times[i + 1]) { lo = i; break; }
@@ -783,8 +800,9 @@ function getWindAtTime(forecast, targetDate) {
   return {
     speed:     lerp(speeds[lo],     speeds[lo + 1],     t),
     direction: interpolateAngle(directions[lo], directions[lo + 1], t),
-    temp:      temps   ? lerp(temps[lo],   temps[lo + 1],   t) : null,
-    precip:    precips ? lerp(precips[lo], precips[lo + 1], t) : null,
+    temp:      temps      ? lerp(temps[lo],      temps[lo + 1],      t) : null,
+    precip:    precips    ? lerp(precips[lo],    precips[lo + 1],    t) : null,
+    humidity:  humidities ? lerp(humidities[lo], humidities[lo + 1], t) : null,
   };
 }
 
@@ -866,8 +884,9 @@ async function buildWindDataset(sampledPoints, raceStartDateTime, avgSpeedKmh) {
       wind = {
         speed:     loW.speed + (hiW.speed - loW.speed) * t,
         direction: interpolateAngle(loW.direction, hiW.direction, t),
-        temp:      lerp(loW.temp,   hiW.temp),
-        precip:    lerp(loW.precip, hiW.precip),
+        temp:      lerp(loW.temp,     hiW.temp),
+        precip:    lerp(loW.precip,   hiW.precip),
+        humidity:  lerp(loW.humidity, hiW.humidity),
       };
     } else if (loFc) {
       wind = getWindAtTime(loFc, eta);
@@ -880,8 +899,9 @@ async function buildWindDataset(sampledPoints, raceStartDateTime, avgSpeedKmh) {
     result.push({
       speed:     Math.round(wind.speed),
       direction: Math.round(normalizeAngle(wind.direction)),
-      temp:      wind.temp   != null ? Math.round(wind.temp * 10) / 10 : null,
-      precip:    wind.precip != null ? Math.round(wind.precip * 10) / 10 : null,
+      temp:      wind.temp     != null ? Math.round(wind.temp * 10) / 10 : null,
+      precip:    wind.precip   != null ? Math.round(wind.precip * 10) / 10 : null,
+      humidity:  wind.humidity != null ? Math.round(wind.humidity) : null,
     });
   }
   return result;
@@ -960,16 +980,16 @@ function updateDirPanel(idx) {
     const cls         = classifyRelativeWind(h, wDir);
     const absDeg      = Math.round(cls.absDelta);
     const relArrowRot = normalizeAngle(windTo - h);
-    document.getElementById('drRelNeedle').setAttribute('transform', `rotate(${relArrowRot},11,11)`);
+    document.getElementById('drRelNeedle').setAttribute('transform', `rotate(${relArrowRot},9,9)`);
     document.getElementById('drRelArrow').setAttribute('fill', cls.color);
     document.getElementById('drRelNeedleLine').setAttribute('stroke', cls.color + 'aa');
     document.getElementById('drRelVal').textContent = `${absDeg}° · ${wSpd} km/h`;
     // Scale arrow geometry by speed: 0 km/h = tiny, 50+ km/h = full size
     const wf = Math.min(1, Math.max(0, wSpd / 50));
-    const hw = (1.5 + wf * 4).toFixed(1);      // arrowhead half-width
-    const needleY1 = (19 - wf * 6).toFixed(1); // needle tail (shorter at low speed)
-    const sw = (1.5 + wf * 2.5).toFixed(1);    // stroke width
-    document.getElementById('drRelArrow').setAttribute('points', `11,2.5 ${11 - hw},8 ${11 + hw},8`);
+    const hw = (1.5 + wf * 3.5).toFixed(1);    // arrowhead half-width
+    const needleY1 = (16 - wf * 5).toFixed(1); // needle tail (shorter at low speed)
+    const sw = (1.5 + wf * 2).toFixed(1);      // stroke width
+    document.getElementById('drRelArrow').setAttribute('points', `9,2 ${9 - hw},7 ${9 + hw},7`);
     document.getElementById('drRelNeedleLine').setAttribute('y1', needleY1);
     document.getElementById('drRelNeedleLine').setAttribute('stroke-width', sw);
     const lbl = document.getElementById('drRelLabel');
@@ -999,6 +1019,8 @@ function updateDirPanel(idx) {
   tempRainRow.classList.toggle('hidden', !hasTempData);
   if (hasTempData) {
     document.getElementById('drTempVal').textContent = `${wind.temp.toFixed(1)}°C`;
+    const humEl = document.getElementById('drHumVal');
+    if (humEl) humEl.textContent = wind.humidity != null ? `${Math.round(wind.humidity)}%` : '—';
     const rainMm = wind.precip ?? 0;
     document.getElementById('drRainVal').textContent =
       rainMm < 0.05 ? 'Dry' : `${rainMm.toFixed(1)} mm`;
@@ -1246,8 +1268,39 @@ function updateElevCursor(idx) {
   const strip = document.getElementById('elevStrip');
   const cursor = document.getElementById('elevCursor');
   const svgEl = document.getElementById('elevSvg');
-  const svgW = svgEl.getBoundingClientRect().width;
-  cursor.style.left = (pct * svgW + svgEl.getBoundingClientRect().left - strip.getBoundingClientRect().left) + 'px';
+  const svgRect = svgEl.getBoundingClientRect();
+  cursor.style.left = (pct * svgRect.width + svgRect.left - strip.getBoundingClientRect().left) + 'px';
+
+  const pt = state.sampled[idx];
+  const total = state.totalDist;
+  const done = (pt.dist / 1000).toFixed(1);
+  const togo = ((total - pt.dist) / 1000).toFixed(1);
+  const g = calcGradient(idx);
+  const ag = Math.abs(g);
+  const gradStr = ag < 0.2 ? 'flat' : (g > 0 ? `+${g.toFixed(1)}%` : `${g.toFixed(1)}%`);
+  const doneEl = document.getElementById('elevInfoDone');
+  const midEl  = document.getElementById('elevInfoMid');
+  const togoEl = document.getElementById('elevInfoTogo');
+  if (doneEl) doneEl.textContent = `${done} km`;
+  if (midEl)  midEl.textContent  = `${Math.round(pt.ele)} m · ${gradStr}`;
+  if (togoEl) togoEl.textContent = `${togo} km to go`;
+}
+
+function initElevInteraction() {
+  const svg = document.getElementById('elevSvg');
+  let scrubbing = false;
+  function seekFromX(clientX) {
+    if (!state.sampled.length) return;
+    const rect = svg.getBoundingClientRect();
+    const t = Math.max(0, Math.min(1, (clientX - rect.left) / rect.width));
+    goTo(Math.round(t * (state.sampled.length - 1)));
+  }
+  svg.addEventListener('mousedown', e => { scrubbing = true; seekFromX(e.clientX); e.preventDefault(); });
+  window.addEventListener('mousemove', e => { if (scrubbing) seekFromX(e.clientX); });
+  window.addEventListener('mouseup', () => { scrubbing = false; });
+  svg.addEventListener('touchstart', e => { scrubbing = true; seekFromX(e.touches[0].clientX); }, { passive: true });
+  svg.addEventListener('touchmove', e => { if (scrubbing) seekFromX(e.touches[0].clientX); }, { passive: true });
+  svg.addEventListener('touchend', () => { scrubbing = false; });
 }
 
 // ═══════════════════════════════════════════════════════════════════
@@ -1398,12 +1451,25 @@ async function goTo(idx) {
   ovDist.querySelector('.dist-togo').textContent = `To go: ${toGoDist} km`;
   document.getElementById('ovBarFill').style.width = pct + '%';
 
-  // Update gradient — show as +3.5% / -2.1% / flat
+  // Update gradient overlay with visual ramp SVG
   const grad = calcGradient(idx);
   const absGrad = Math.abs(grad);
   const gradEl = document.getElementById('ovGrad');
-  gradEl.textContent = absGrad < 0.2 ? 'flat' : (grad > 0 ? `+${grad.toFixed(1)}%` : `${grad.toFixed(1)}%`);
-  gradEl.style.color = absGrad >= 8 ? '#ff5555' : absGrad >= 5 ? '#ffa500' : absGrad >= 2 ? '#ffd700' : '#fff';
+  const gradTextEl = document.getElementById('gradText');
+  const gradColor = absGrad >= 8 ? '#ff5555' : absGrad >= 5 ? '#ffa500' : absGrad >= 2 ? '#ffd700' : '#fff';
+  gradEl.style.color = gradColor;
+  if (gradTextEl) {
+    gradTextEl.textContent = absGrad < 0.2 ? 'flat' : (grad > 0 ? `+${grad.toFixed(1)}%` : `${grad.toFixed(1)}%`);
+    const swing = Math.min(6, absGrad * 0.7);
+    const y1 = (grad >= 0 ? 8 + swing / 2 : 8 - swing / 2).toFixed(1);
+    const y2 = (grad >= 0 ? 8 - swing / 2 : 8 + swing / 2).toFixed(1);
+    const rampLine = document.getElementById('gradRampLine');
+    const fillPoly = document.getElementById('gradFillPoly');
+    const rampDot  = document.getElementById('gradRampDot');
+    if (rampLine) { rampLine.setAttribute('y1', y1); rampLine.setAttribute('y2', y2); }
+    if (fillPoly) fillPoly.setAttribute('points', `0,16 28,16 28,${y2} 0,${y1}`);
+    if (rampDot)  rampDot.setAttribute('cy', y2);
+  }
 
   // Update directional panel (heading + wind) — before image fetch for instant feedback
   updateDirPanel(idx);
@@ -1524,7 +1590,7 @@ function showOverlays(show) {
   ['ovDist','ovBar','ovGrad'].forEach(id =>
     document.getElementById(id).classList.toggle('hidden', !show));
   document.getElementById('dirPanel').classList.toggle('hidden', !show);
-  document.getElementById('mapWrap').classList.toggle('hidden', !show);
+  document.getElementById('mapPane').classList.toggle('hidden', !show);
   if (show && leafletMap) setTimeout(() => leafletMap.invalidateSize(), 100);
 }
 
@@ -1598,6 +1664,7 @@ document.addEventListener('DOMContentLoaded', () => {
   initMap();
   initDrop();
   initWindUI();
+  initElevInteraction();
 
   // Scroll wheel over the Street View image → step through frames
   document.getElementById('svWrap').addEventListener('wheel', e => {
