@@ -170,6 +170,46 @@ input#gpxFile{display:none}
 .wind-chip.ok{background:#dcfce7;color:#166534}
 .wind-chip.warn{background:#fef3c7;color:#92400e}
 .wind-chip.error{background:#fee2e2;color:#991b1b}
+
+/* ── Mode tabs ───────────────────────────────────────────────────── */
+.mode-tabs{display:flex;border-bottom:1px solid var(--border);background:#f7f9fc;border-radius:var(--radius) var(--radius) 0 0;overflow:hidden}
+.mode-tab{flex:1;padding:10px 16px;border:none;background:transparent;font-size:13px;font-weight:600;color:var(--sub);cursor:pointer;transition:all .15s;border-bottom:3px solid transparent}
+.mode-tab.active{color:var(--blue);background:var(--card);border-bottom-color:var(--blue)}
+.mode-tab:hover:not(.active){background:#edf0f7;color:var(--text)}
+
+/* ── Streetwarp crossfade layer ──────────────────────────────────── */
+.sw-layer{position:absolute;inset:0;display:none;z-index:1}
+.sw-layer.active{display:block}
+.sw-img-slot{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
+
+/* ── Streetwarp player bar ───────────────────────────────────────── */
+.sw-controls{padding:14px 16px;border-top:1px solid var(--border);display:none;flex-direction:column;gap:8px}
+.sw-controls.active{display:flex}
+.sw-btn-row{display:flex;align-items:center;gap:8px}
+.sw-btn-row button{background:none;border:none;cursor:pointer;font-size:19px;padding:4px 6px;border-radius:6px;transition:background .15s;line-height:1;color:var(--text)}
+.sw-btn-row button:hover{background:#f0f2f7}
+.sw-play-btn{font-size:26px!important;color:var(--blue)!important}
+.sw-timeline{height:4px;background:#e8ebf4;border-radius:2px;overflow:hidden;flex:1}
+.sw-timeline-fill{height:100%;background:var(--orange);width:0%;transition:width .3s ease}
+
+/* ── Export panel ────────────────────────────────────────────────── */
+.sw-export{padding:10px 16px 14px;border-top:1px solid var(--border);display:none;flex-direction:column;gap:8px}
+.sw-export.active{display:flex}
+.sw-export-row{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.sw-export-bar{height:6px;background:#e8ebf4;border-radius:3px;overflow:hidden;flex:1;min-width:60px}
+.sw-export-fill{height:100%;background:var(--blue);width:0%;transition:width .2s ease}
+.sw-export-msg{font-size:11px;color:var(--sub);font-family:var(--mono);white-space:nowrap}
+
+/* ── Cache badge ─────────────────────────────────────────────────── */
+.sv-cache-badge{position:absolute;bottom:54px;right:14px;background:rgba(10,16,32,.55);color:rgba(255,255,255,.45);padding:3px 8px;border-radius:6px;font-size:9px;font-family:var(--mono);pointer-events:none;backdrop-filter:blur(4px);z-index:5}
+
+/* ── Streetwarp quality selector ─────────────────────────────────── */
+#swQualityWrap{display:none;margin-top:10px;padding-top:10px;border-top:1px solid var(--border)}
+#swQualityWrap.active{display:block}
+.quality-btns{display:flex;gap:4px}
+.quality-btn{flex:1;padding:5px 4px;border:1px solid var(--border);border-radius:6px;background:#f7f9fc;font-size:11px;font-weight:600;cursor:pointer;transition:all .15s;color:var(--sub);text-align:center}
+.quality-btn.active{background:var(--blue);color:#fff;border-color:var(--blue)}
+.quality-btn:hover:not(.active){background:#e8ebf4;color:var(--text)}
 </style>
 </head>
 <body>
@@ -241,6 +281,16 @@ input#gpxFile{display:none}
         <div id="applyWrap" class="hidden" style="margin-top:8px">
           <button class="btn btn-primary" style="width:100%" onclick="applySettings()">Re-sample Route</button>
         </div>
+        <!-- Streetwarp quality (visible only in SW mode) -->
+        <div id="swQualityWrap">
+          <label style="margin-bottom:6px;display:block">Streetwarp Quality</label>
+          <div class="quality-btns">
+            <button class="quality-btn" id="qEconomy"   onclick="setSwQuality('economy')">Economy</button>
+            <button class="quality-btn active" id="qBalanced"  onclick="setSwQuality('balanced')">Balanced</button>
+            <button class="quality-btn" id="qCinematic" onclick="setSwQuality('cinematic')">Cinematic</button>
+          </div>
+          <small style="display:block;margin-top:4px;color:var(--sub)">Economy = fewer frames · Cinematic = dense sampling</small>
+        </div>
       </div>
 
       <!-- Wind card -->
@@ -306,6 +356,12 @@ input#gpxFile{display:none}
     <div>
       <div class="card viewer-card" id="viewerCard">
 
+        <!-- Mode selector tabs -->
+        <div class="mode-tabs">
+          <button class="mode-tab active" id="tabStandard"    onclick="setViewMode('standard')">Standard Preview</button>
+          <button class="mode-tab"        id="tabStreetwarp"  onclick="setViewMode('streetwarp')">Streetwarp Video</button>
+        </div>
+
         <!-- Combined Street View + Map inset -->
         <div class="viewer-content">
           <div class="sv-wrap" id="svWrap">
@@ -314,6 +370,13 @@ input#gpxFile{display:none}
               <div>Load a GPX file to begin the ride-through</div>
             </div>
             <img class="sv-img hidden" id="svImg" alt="Street View">
+            <!-- Streetwarp crossfade layer (two overlapping images) -->
+            <div class="sw-layer" id="swLayer">
+              <img class="sw-img-slot" id="swImgA" alt="">
+              <img class="sw-img-slot" id="swImgB" alt="" style="opacity:0">
+            </div>
+            <!-- Cache dedup badge -->
+            <div class="sv-cache-badge hidden" id="svCacheBadge">0 cached</div>
             <!-- Distance (top-left) -->
             <div class="sv-overlay-dist hidden" id="ovDist"><span class="dist-done">0.00 km</span><span class="dist-togo">To go: —</span></div>
             <!-- Unified directional panel: HDG / WIND / REL -->
@@ -420,6 +483,27 @@ input#gpxFile{display:none}
               </select>
             </div>
           </div>
+        </div>
+
+        <!-- Streetwarp player controls (shown in SW mode) -->
+        <div class="sw-controls" id="swControls">
+          <div class="sw-btn-row">
+            <button title="Previous frame" onclick="swStep(-1)">◀</button>
+            <button class="sw-play-btn" id="swPlayBtn" title="Play / Pause" onclick="swTogglePlay()">▶</button>
+            <button title="Next frame"     onclick="swStep(1)">▶▶</button>
+            <div class="sw-timeline"><div class="sw-timeline-fill" id="swTimelineFill"></div></div>
+            <span style="font-size:11px;color:var(--sub);font-family:var(--mono);white-space:nowrap" id="swPosLabel">—</span>
+          </div>
+        </div>
+
+        <!-- Streetwarp export panel -->
+        <div class="sw-export" id="swExport">
+          <div class="sw-export-row">
+            <button class="btn-orange" id="swExportBtn" onclick="exportSwVideo()">⬇ Download Video</button>
+            <div class="sw-export-bar"><div class="sw-export-fill" id="swExportFill"></div></div>
+            <span class="sw-export-msg" id="swExportMsg">Ready</span>
+          </div>
+          <div style="font-size:10px;color:var(--sub)">Exports as WebM · imagery fetched once and reused</div>
         </div>
 
       </div><!-- /viewer-card -->
@@ -1164,8 +1248,11 @@ const MAX_CACHE = 60;
 
 async function fetchStreetView(idx) {
   if (imgCache.has(idx)) return imgCache.get(idx);
+
+  const pt = state.sampled[idx];
+  if (!pt) return null;
+
   if (loadingSet.has(idx)) {
-    // wait for it to resolve
     return new Promise(resolve => {
       const poll = setInterval(() => {
         if (imgCache.has(idx)) { clearInterval(poll); resolve(imgCache.get(idx)); }
@@ -1174,44 +1261,24 @@ async function fetchStreetView(idx) {
     });
   }
 
-  const pt = state.sampled[idx];
-  if (!pt) return null;
-
   loadingSet.add(idx);
   try {
-    const params = new URLSearchParams({
-      lat: pt.lat.toFixed(6),
-      lng: pt.lon.toFixed(6),
-      heading: String(pt.heading),
-      fov: String(state.fov),
-      size: '800x450',
-    });
-    const resp = await fetch(`${SV_BASE}?${params}`);
+    // fetchSvEntry handles dedup: same physical location+heading+fov → one API call ever
+    const entry = await fetchSvEntry(pt.lat, pt.lon, pt.heading, state.fov, SV_IMG_SIZE);
+    if (!entry) return null;
 
-    if (!resp.ok) {
-      const body = await resp.text().catch(() => '');
-      console.error(`[SV] proxy ${resp.status} for idx=${idx}:`, body);
-      loadingSet.delete(idx);
-      return null;
-    }
-
-    // Evict oldest entry when cache is full
+    // Evict oldest index mapping (don't revoke URL — blob is owned by svKeyCache)
     if (imgCache.size >= MAX_CACHE) {
-      const oldest = imgCache.keys().next().value;
-      URL.revokeObjectURL(imgCache.get(oldest));
-      imgCache.delete(oldest);
+      const oldest = [...imgCache.keys()].find(k => typeof k === 'number');
+      if (oldest !== undefined) {
+        imgCache.delete(`${oldest}_nocov`);
+        imgCache.delete(oldest);
+      }
     }
 
-    const blob = await resp.blob();
-    const url = URL.createObjectURL(blob);
-    imgCache.set(idx, url);
-
-    // Detect Google's "no imagery" grey placeholder by checking
-    // the custom header the proxy injects
-    const noCover = resp.headers.get('X-No-Coverage') === '1';
-    imgCache.set(`${idx}_nocov`, noCover);
-
-    return url;
+    imgCache.set(idx, entry.url);
+    imgCache.set(`${idx}_nocov`, entry.noCov);
+    return entry.url;
   } catch(e) {
     console.error('[SV] fetch exception:', e);
     return null;
@@ -1394,10 +1461,8 @@ function processSampled() {
   const raw = sampleRoute(state.rawPoints, state.sampleMeters);
   state.sampled = addHeadings(raw);
 
-  // Clear image cache when resampling
-  for (const url of imgCache.values()) {
-    if (typeof url === 'string' && url.startsWith('blob:')) URL.revokeObjectURL(url);
-  }
+  // Clear index→url mapping only; svKeyCache keeps the physical imagery for reuse
+  // (same lat/lng at a different sample density still produces the same API image)
   imgCache.clear();
   loadingSet.clear();
 
@@ -1415,8 +1480,10 @@ function processSampled() {
   drawRoute(state.sampled);
   drawElevProfile(state.sampled);
 
-  // Enable player
-  document.getElementById('playerControls').classList.remove('hidden');
+  // Enable player (only in standard mode; Streetwarp has its own controls)
+  if (currentViewMode === 'standard') {
+    document.getElementById('playerControls').classList.remove('hidden');
+  }
   showOverlays(true);
 
   // Update seek bar
@@ -1427,6 +1494,11 @@ function processSampled() {
   goTo(0);
   document.getElementById('applyWrap').classList.add('hidden');
   rebuildWindData();
+
+  // If currently in Streetwarp mode, rebuild the plan for the new route
+  if (currentViewMode === 'streetwarp') {
+    initStreetWarp();
+  }
 }
 
 function showOverlays(show) {
@@ -1449,11 +1521,9 @@ function onSampleChange(val) {
 function onFovChange(val) {
   state.fov = parseInt(val);
   document.getElementById('fovVal').textContent = val;
-  // Invalidate cache (FOV change requires re-fetch)
-  for (const url of imgCache.values()) {
-    if (typeof url === 'string' && url.startsWith('blob:')) URL.revokeObjectURL(url);
-  }
+  // FOV changes the image content — must invalidate all cached imagery including dedup cache
   imgCache.clear();
+  clearSvKeyCache();
   if (state.sampled.length) goTo(state.currentIdx);
 }
 
@@ -1491,6 +1561,463 @@ document.addEventListener('DOMContentLoaded', () => {
   initDrop();
   initWindUI();
 });
+
+// ═══════════════════════════════════════════════════════════════════
+// DEDUP CACHE — key-based, shared across both modes
+// ═══════════════════════════════════════════════════════════════════
+// Every unique (location × heading × fov × size) is fetched at most once.
+// Standard preview, Streetwarp playback, and export all read from this cache.
+
+const svKeyCache   = new Map(); // cacheKey → { url: blobURL, noCov: bool }
+const svKeyLoading = new Map(); // cacheKey → Promise<entry|null>
+const SV_IMG_SIZE  = '800x450';
+let _svHits = 0, _svMisses = 0;
+
+function makeSvKey(lat, lng, heading, fov, size) {
+  // Heading rounded to nearest 5° so adjacent frames rarely differ by 1° don't re-fetch
+  const h = ((Math.round(heading / 5) * 5) % 360 + 360) % 360;
+  return `${lat.toFixed(4)}_${lng.toFixed(4)}_${h}_${fov}_${size}`;
+}
+
+async function fetchSvEntry(lat, lng, heading, fov, size) {
+  const key = makeSvKey(lat, lng, heading, fov, size);
+
+  if (svKeyCache.has(key)) {
+    _svHits++;
+    _updateSvBadge();
+    return svKeyCache.get(key);
+  }
+  if (svKeyLoading.has(key)) return svKeyLoading.get(key);
+
+  _svMisses++;
+  _updateSvBadge();
+
+  const p = (async () => {
+    try {
+      const params = new URLSearchParams({
+        lat: lat.toFixed(6), lng: lng.toFixed(6),
+        heading: String(Math.round(heading)),
+        fov: String(fov), size,
+      });
+      const resp = await fetch(`${SV_BASE}?${params}`);
+      if (!resp.ok) return null;
+      const blob = await resp.blob();
+      const url  = URL.createObjectURL(blob);
+      const noCov = resp.headers.get('X-No-Coverage') === '1';
+      const entry = { url, noCov };
+      svKeyCache.set(key, entry);
+      _updateSvBadge();
+      return entry;
+    } catch { return null; }
+    finally  { svKeyLoading.delete(key); }
+  })();
+
+  svKeyLoading.set(key, p);
+  return p;
+}
+
+function _updateSvBadge() {
+  const el = document.getElementById('svCacheBadge');
+  if (el) el.textContent = `${svKeyCache.size} cached · ${_svHits} reused`;
+}
+
+function clearSvKeyCache() {
+  for (const entry of svKeyCache.values()) {
+    if (entry?.url) URL.revokeObjectURL(entry.url);
+  }
+  svKeyCache.clear();
+  svKeyLoading.clear();
+  _svHits = 0; _svMisses = 0;
+  _updateSvBadge();
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// MODE SWITCHING — Standard Preview ↔ Streetwarp Video
+// ═══════════════════════════════════════════════════════════════════
+let currentViewMode = 'standard';
+
+function setViewMode(mode) {
+  if (currentViewMode === mode) return;
+  currentViewMode = mode;
+
+  const isStd = mode === 'standard';
+  document.getElementById('tabStandard').classList.toggle('active', isStd);
+  document.getElementById('tabStreetwarp').classList.toggle('active', !isStd);
+
+  // Standard-only elements
+  const playerControls = document.getElementById('playerControls');
+  if (state.sampled.length) {
+    playerControls.classList.toggle('hidden', !isStd);
+  }
+
+  // Streetwarp-only elements
+  document.getElementById('swControls').classList.toggle('active', !isStd);
+  document.getElementById('swExport').classList.toggle('active', !isStd);
+  document.getElementById('swLayer').classList.toggle('active', !isStd);
+  document.getElementById('svCacheBadge').classList.toggle('hidden', isStd);
+  document.getElementById('swQualityWrap').classList.toggle('active', !isStd);
+
+  // The standard img sits behind SW layer; show/hide as needed
+  const svImg = document.getElementById('svImg');
+  if (!isStd) svImg.classList.add('hidden');
+
+  if (isStd) {
+    swPause();
+    // Restore standard view at the position Streetwarp was on
+    const swDist = sw.plan[sw.idx]?.dist || 0;
+    const nearestStdIdx = state.sampled.reduce((best, pt, i) =>
+      Math.abs(pt.dist - swDist) < Math.abs(state.sampled[best].dist - swDist) ? i : best, 0);
+    goTo(nearestStdIdx);
+  } else {
+    if (state.playing) pausePlayer();
+    initStreetWarp();
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// STREETWARP — adaptive sampling plan
+// ═══════════════════════════════════════════════════════════════════
+const SW_QUALITY_CFG = {
+  economy:   { spacing: 500, hold: 800,  transition: 300 },
+  balanced:  { spacing: 200, hold: 1200, transition: 500 },
+  cinematic: { spacing: 100, hold: 2000, transition: 700 },
+};
+
+function buildSwPlan(sampled, quality) {
+  const cfg = SW_QUALITY_CFG[quality] || SW_QUALITY_CFG.balanced;
+  if (!sampled.length) return [];
+
+  const plan = [{ ...sampled[0], planIdx: 0, sampledIdx: 0 }];
+  let lastDist = sampled[0].dist;
+
+  for (let i = 1; i < sampled.length - 1; i++) {
+    const pt = sampled[i];
+    // Curvature: how much heading changes around this point
+    const prevH = sampled[i - 1].heading;
+    const nextH = sampled[i + 1].heading;
+    const curve = Math.abs(smallestSignedAngleDeg(prevH, nextH));
+
+    // Dense at sharp corners, normal on straights
+    const threshold = curve > 20 ? cfg.spacing * 0.35
+                    : curve > 10 ? cfg.spacing * 0.6
+                    : cfg.spacing;
+
+    if (pt.dist - lastDist >= threshold) {
+      plan.push({ ...pt, planIdx: plan.length, sampledIdx: i });
+      lastDist = pt.dist;
+    }
+  }
+
+  const last = sampled[sampled.length - 1];
+  if (plan[plan.length - 1].sampledIdx !== sampled.length - 1) {
+    plan.push({ ...last, planIdx: plan.length, sampledIdx: sampled.length - 1 });
+  }
+
+  return plan;
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// STREETWARP — player
+// ═══════════════════════════════════════════════════════════════════
+const sw = {
+  plan: [],
+  idx: 0,
+  quality: 'balanced',
+  playing: false,
+  rafId: null,
+  phase: 'hold',       // 'hold' | 'transition'
+  phaseStart: 0,
+  entryA: null,
+  entryB: null,
+};
+
+function easeInOut(t) {
+  return t < 0.5 ? 2 * t * t : -1 + (4 - 2 * t) * t;
+}
+
+async function initStreetWarp() {
+  if (!state.sampled.length) return;
+
+  sw.plan = buildSwPlan(state.sampled, sw.quality);
+  sw.playing = false;
+  document.getElementById('swPlayBtn').textContent = '▶';
+
+  // Sync position to wherever standard mode was
+  const targetDist = state.sampled[state.currentIdx]?.dist || 0;
+  sw.idx = sw.plan.reduce((best, pt, i) =>
+    Math.abs(pt.dist - targetDist) < Math.abs(sw.plan[best].dist - targetDist) ? i : best, 0);
+
+  _updateSwUI();
+  await swShowFrame(sw.idx);
+  _swPrefetchAhead(sw.idx + 1, 6);
+}
+
+async function swShowFrame(idx) {
+  if (idx < 0 || idx >= sw.plan.length) return;
+  const pt = sw.plan[idx];
+  const entry = await fetchSvEntry(pt.lat, pt.lon, pt.heading, state.fov, SV_IMG_SIZE);
+  sw.entryA = entry;
+
+  const imgA = document.getElementById('swImgA');
+  const imgB = document.getElementById('swImgB');
+  imgA.src = entry?.url || '';
+  imgB.style.opacity = '0';
+  imgA.style.opacity = '1';
+
+  _swUpdateOverlays(idx);
+}
+
+function _swUpdateOverlays(swIdx) {
+  const si = sw.plan[swIdx]?.sampledIdx;
+  if (si !== undefined) {
+    updateMapMarker(si);
+    updateElevCursor(si);
+    updateDirPanel(si);
+  }
+  _updateSwUI();
+}
+
+function _updateSwUI() {
+  const lbl = document.getElementById('swPosLabel');
+  const fill = document.getElementById('swTimelineFill');
+  if (!sw.plan.length) return;
+  const pt = sw.plan[sw.idx];
+  if (lbl) lbl.textContent = `${(pt.dist / 1000).toFixed(1)} km · ${sw.idx + 1}/${sw.plan.length}`;
+  if (fill && sw.plan.length > 1) {
+    fill.style.width = `${(sw.idx / (sw.plan.length - 1)) * 100}%`;
+  }
+}
+
+function _swPrefetchAhead(startIdx, count) {
+  const CONC = 4;
+  const targets = [];
+  for (let i = startIdx; i < Math.min(startIdx + count, sw.plan.length); i++) {
+    targets.push(sw.plan[i]);
+  }
+  let qi = 0;
+  const worker = async () => {
+    while (qi < targets.length) {
+      const pt = targets[qi++];
+      if (pt) await fetchSvEntry(pt.lat, pt.lon, pt.heading, state.fov, SV_IMG_SIZE);
+    }
+  };
+  Promise.all(Array.from({ length: Math.min(CONC, targets.length || 1) }, worker));
+}
+
+function swTogglePlay() {
+  if (sw.playing) swPause();
+  else swPlay();
+}
+
+function swPlay() {
+  if (!sw.plan.length || sw.idx >= sw.plan.length - 1) return;
+  sw.playing = true;
+  sw.phase = 'hold';
+  sw.phaseStart = performance.now();
+  document.getElementById('swPlayBtn').textContent = '⏸';
+  sw.rafId = requestAnimationFrame(_swTick);
+  _swPrefetchAhead(sw.idx, 20);
+}
+
+function swPause() {
+  sw.playing = false;
+  if (sw.rafId) { cancelAnimationFrame(sw.rafId); sw.rafId = null; }
+  const btn = document.getElementById('swPlayBtn');
+  if (btn) btn.textContent = '▶';
+}
+
+function swStep(delta) {
+  swPause();
+  const next = Math.max(0, Math.min(sw.plan.length - 1, sw.idx + delta));
+  sw.idx = next;
+  swShowFrame(next);
+}
+
+function _swTick(now) {
+  if (!sw.playing) return;
+  const cfg = SW_QUALITY_CFG[sw.quality] || SW_QUALITY_CFG.balanced;
+  const elapsed = now - sw.phaseStart;
+
+  if (sw.phase === 'hold') {
+    if (elapsed >= cfg.hold) {
+      if (sw.idx + 1 >= sw.plan.length) { swPause(); return; }
+      // Begin crossfade to next frame
+      sw.phase = 'transition';
+      sw.phaseStart = now;
+      const nextPt = sw.plan[sw.idx + 1];
+      const key = makeSvKey(nextPt.lat, nextPt.lon, nextPt.heading, state.fov, SV_IMG_SIZE);
+      sw.entryB = svKeyCache.get(key) || null;
+      const imgB = document.getElementById('swImgB');
+      imgB.src = sw.entryB?.url || '';
+    }
+
+  } else { // transition
+    const t = Math.min(1, elapsed / cfg.transition);
+    const e = easeInOut(t);
+    document.getElementById('swImgA').style.opacity = String(1 - e);
+    document.getElementById('swImgB').style.opacity = String(e);
+
+    if (t >= 1) {
+      sw.idx++;
+      sw.phase = 'hold';
+      sw.phaseStart = now;
+      sw.entryA = sw.entryB;
+      sw.entryB = null;
+      const imgA = document.getElementById('swImgA');
+      const imgB = document.getElementById('swImgB');
+      imgA.src = sw.entryA?.url || '';
+      imgA.style.opacity = '1';
+      imgB.style.opacity = '0';
+      _swUpdateOverlays(sw.idx);
+      _swPrefetchAhead(sw.idx + 1, 10);
+    }
+  }
+
+  sw.rafId = requestAnimationFrame(_swTick);
+}
+
+function setSwQuality(q) {
+  sw.quality = q;
+  ['economy', 'balanced', 'cinematic'].forEach(name => {
+    const id = 'q' + name.charAt(0).toUpperCase() + name.slice(1);
+    const btn = document.getElementById(id);
+    if (btn) btn.classList.toggle('active', name === q);
+  });
+  if (currentViewMode === 'streetwarp' && state.sampled.length) {
+    swPause();
+    initStreetWarp();
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// STREETWARP — export pipeline (offscreen canvas + MediaRecorder)
+// ═══════════════════════════════════════════════════════════════════
+function _swSetExportMsg(msg)  { const el = document.getElementById('swExportMsg');  if (el) el.textContent = msg; }
+function _swSetExportPct(n, d) { const el = document.getElementById('swExportFill'); if (el) el.style.width = d > 0 ? `${(n/d)*100}%` : '0%'; }
+
+function _loadImg(src) {
+  return new Promise(resolve => {
+    if (!src) { resolve(null); return; }
+    const img = new Image();
+    img.onload = () => resolve(img);
+    img.onerror = () => resolve(null);
+    img.src = src;
+  });
+}
+const _sleep = ms => new Promise(r => setTimeout(r, ms));
+
+async function exportSwVideo() {
+  if (!sw.plan.length) { _swSetExportMsg('Load a route first'); return; }
+  if (sw.playing) swPause();
+
+  const exportBtn = document.getElementById('swExportBtn');
+  if (exportBtn) exportBtn.disabled = true;
+  _swSetExportPct(0, 1);
+
+  try {
+    // ── Phase 1: prefetch all plan frames (reuses svKeyCache aggressively) ──
+    _swSetExportMsg('Fetching imagery…');
+    let fetched = 0;
+    const queue = [...sw.plan];
+    let qi = 0;
+    const CONC = 4;
+    const worker = async () => {
+      while (qi < queue.length) {
+        const pt = queue[qi++];
+        await fetchSvEntry(pt.lat, pt.lon, pt.heading, state.fov, SV_IMG_SIZE);
+        fetched++;
+        _swSetExportPct(fetched, sw.plan.length * 2);
+        _swSetExportMsg(`Fetching… ${fetched}/${sw.plan.length}`);
+      }
+    };
+    await Promise.all(Array.from({ length: CONC }, worker));
+
+    // ── Phase 2: render frames to offscreen canvas via MediaRecorder ──
+    _swSetExportMsg('Rendering…');
+    const cfg = SW_QUALITY_CFG[sw.quality] || SW_QUALITY_CFG.balanced;
+    const W = 800, H = 450, FPS = 30;
+    const canvas = document.createElement('canvas');
+    canvas.width = W; canvas.height = H;
+    const ctx = canvas.getContext('2d');
+
+    const mimeType = ['video/webm;codecs=vp9', 'video/webm', 'video/mp4']
+      .find(t => { try { return MediaRecorder.isTypeSupported(t); } catch { return false; } });
+
+    if (!mimeType) {
+      _swSetExportMsg('✗ MediaRecorder not supported in this browser');
+      return;
+    }
+
+    const stream   = canvas.captureStream(FPS);
+    const recorder = new MediaRecorder(stream, { mimeType, videoBitsPerSecond: 5_000_000 });
+    const chunks   = [];
+    recorder.ondataavailable = e => { if (e.data.size > 0) chunks.push(e.data); };
+    recorder.start(100);
+
+    const holdFrames  = Math.max(1, Math.round(cfg.hold / 1000 * FPS));
+    const transFrames = Math.max(1, Math.round(cfg.transition / 1000 * FPS));
+    const frameMs     = Math.round(1000 / FPS);
+
+    for (let i = 0; i < sw.plan.length; i++) {
+      _swSetExportPct(sw.plan.length + i, sw.plan.length * 2);
+      _swSetExportMsg(`Rendering ${i + 1}/${sw.plan.length}…`);
+
+      const ptA  = sw.plan[i];
+      const entA = svKeyCache.get(makeSvKey(ptA.lat, ptA.lon, ptA.heading, state.fov, SV_IMG_SIZE));
+      const imgA = await _loadImg(entA?.url || null);
+
+      let imgB = null;
+      if (i + 1 < sw.plan.length) {
+        const ptB  = sw.plan[i + 1];
+        const entB = svKeyCache.get(makeSvKey(ptB.lat, ptB.lon, ptB.heading, state.fov, SV_IMG_SIZE));
+        imgB = await _loadImg(entB?.url || null);
+      }
+
+      // Hold frames
+      for (let f = 0; f < holdFrames; f++) {
+        ctx.fillStyle = '#0a1020'; ctx.fillRect(0, 0, W, H);
+        if (imgA) ctx.drawImage(imgA, 0, 0, W, H);
+        await _sleep(frameMs);
+      }
+
+      // Crossfade transition frames
+      if (imgB) {
+        for (let f = 0; f <= transFrames; f++) {
+          const alpha = easeInOut(f / transFrames);
+          ctx.fillStyle = '#0a1020'; ctx.fillRect(0, 0, W, H);
+          if (imgA) { ctx.globalAlpha = 1 - alpha; ctx.drawImage(imgA, 0, 0, W, H); }
+          ctx.globalAlpha = alpha; ctx.drawImage(imgB, 0, 0, W, H);
+          ctx.globalAlpha = 1;
+          await _sleep(frameMs);
+        }
+      }
+    }
+
+    recorder.stop();
+
+    await new Promise(resolve => {
+      recorder.onstop = () => {
+        const ext  = mimeType.includes('mp4') ? 'mp4' : 'webm';
+        const blob = new Blob(chunks, { type: mimeType });
+        const url  = URL.createObjectURL(blob);
+        const a    = document.createElement('a');
+        a.href = url; a.download = `raceview-streetwarp.${ext}`;
+        document.body.appendChild(a); a.click(); document.body.removeChild(a);
+        setTimeout(() => URL.revokeObjectURL(url), 15000);
+        resolve();
+      };
+    });
+
+    _swSetExportMsg('✓ Downloaded!');
+    _swSetExportPct(1, 1);
+
+  } catch (err) {
+    console.error('[SW Export]', err);
+    _swSetExportMsg(`✗ ${err.message}`);
+  } finally {
+    if (exportBtn) exportBtn.disabled = false;
+  }
+}
 </script>
 </body>
 </html>
