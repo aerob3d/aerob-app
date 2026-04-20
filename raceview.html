@@ -93,7 +93,10 @@ input#gpxFile{display:none}
 .viewer-content{padding:16px}
 
 /* ── Map inset overlay ──────────────────────────────────────────── */
-.sv-map-inset{position:absolute;bottom:14px;right:14px;width:210px;height:134px;border-radius:6px;overflow:hidden;border:2px solid rgba(255,255,255,.35);z-index:10;box-shadow:0 2px 12px rgba(0,0,0,.45)}
+.sv-map-wrap{position:absolute;bottom:14px;right:14px;width:290px;height:185px;border-radius:7px;border:2px solid rgba(255,255,255,.35);z-index:10;box-shadow:0 2px 14px rgba(0,0,0,.5);overflow:visible}
+#mapInset{width:100%;height:100%;border-radius:5px;overflow:hidden;cursor:crosshair}
+.map-home-btn{position:absolute;top:6px;right:6px;width:22px;height:22px;background:rgba(10,16,32,.78);border:none;border-radius:4px;color:#fff;font-size:14px;cursor:pointer;line-height:1;backdrop-filter:blur(6px);z-index:20;display:flex;align-items:center;justify-content:center;transition:background .15s}
+.map-home-btn:hover{background:rgba(31,59,136,.95)}
 
 /* ── Unified directional panel (HDG / WIND / REL) ──────────────── */
 .dir-panel{position:absolute;top:52px;left:14px;background:rgba(10,16,32,.78);border-radius:8px;backdrop-filter:blur(8px);pointer-events:none;overflow:hidden;min-width:170px}
@@ -150,7 +153,7 @@ input#gpxFile{display:none}
 
 /* ── Elevation strip ───────────────────────────────────────────── */
 .elev-strip{padding:0 16px 14px;position:relative}
-.elev-strip svg{width:100%;height:60px;display:block;border-radius:6px;overflow:visible}
+.elev-strip svg{width:100%;height:80px;display:block;border-radius:6px;overflow:visible}
 .elev-strip .elev-label{display:flex;justify-content:space-between;font-size:10px;color:var(--sub);margin-top:3px;font-family:var(--mono)}
 .elev-cursor{position:absolute;top:0;bottom:22px;width:2px;background:var(--orange);pointer-events:none;transition:left .3s ease;border-radius:1px}
 
@@ -391,48 +394,39 @@ input#gpxFile{display:none}
               </div>
 
             </div>
-            <!-- Progress % (top-right) -->
-            <div class="sv-overlay-pct hidden" id="ovPct">0%</div>
             <!-- Gradient (bottom-left) -->
             <div class="sv-overlay-grad hidden" id="ovGrad">— %</div>
             <!-- Progress bar -->
             <div class="sv-overlay-bar hidden" id="ovBar"><div class="sv-overlay-bar-fill" id="ovBarFill" style="width:0%"></div></div>
-            <!-- Map inset (bottom-right, below loading overlay) -->
-            <div class="sv-map-inset hidden" id="mapInset"></div>
+            <!-- Map inset (bottom-right) — click to jump to that point -->
+            <div class="sv-map-wrap hidden" id="mapWrap">
+              <div id="mapInset"></div>
+              <button class="map-home-btn" id="mapHomeBtn" onclick="mapFitRoute()" title="Fit full route">⌂</button>
+            </div>
             <div class="sv-loading hidden" id="svLoading"><div class="spin"></div> Loading imagery…</div>
             <div class="sv-no-cover hidden" id="svNoCover">No Street View coverage at this location</div>
           </div>
 
           <!-- Elevation strip -->
           <div class="elev-strip" id="elevStrip">
-            <svg id="elevSvg" viewBox="0 0 800 60" preserveAspectRatio="none"></svg>
+            <svg id="elevSvg" viewBox="0 0 800 80" preserveAspectRatio="none"></svg>
             <div class="elev-label"><span id="elevMin">—</span><span id="elevMax">—</span></div>
             <div class="elev-cursor hidden" id="elevCursor"></div>
           </div>
         </div>
 
-        <!-- Player controls (shown in SV tab) -->
+        <!-- Player controls — scrub with the bar or scroll over the image; tap the map to jump -->
         <div class="player hidden" id="playerControls">
           <div class="player-seek">
             <input type="range" id="seekBar" min="0" max="100" value="0" step="1" oninput="onSeek(this.value)">
             <span class="time" id="seekLabel">0.0 / 0.0 km</span>
           </div>
           <div class="player-btns">
-            <button title="Back 5 frames" onclick="playerStep(-5)">⏮</button>
-            <button title="Previous frame" onclick="playerStep(-1)">◀</button>
-            <button class="play-btn" id="playBtn" title="Play / Pause" onclick="togglePlay()">▶</button>
-            <button title="Next frame" onclick="playerStep(1)">▶</button>
-            <button title="Forward 5 frames" onclick="playerStep(5)">⏭</button>
-            <div class="speed-group">
-              Speed:
-              <select id="speedSelect" onchange="onSpeedChange(this.value)">
-                <option value="0.5">0.5×</option>
-                <option value="1" selected>1×</option>
-                <option value="2">2×</option>
-                <option value="4">4×</option>
-                <option value="8">8×</option>
-              </select>
-            </div>
+            <button title="Back 10 frames" onclick="playerStep(-10)">⏮</button>
+            <button title="Previous frame"  onclick="playerStep(-1)">◀</button>
+            <button title="Next frame"      onclick="playerStep(1)">▶</button>
+            <button title="Forward 10 frames" onclick="playerStep(10)">⏭</button>
+            <span style="margin-left:auto;font-size:11px;color:var(--sub)">scroll image or tap map to navigate</span>
           </div>
         </div>
 
@@ -962,14 +956,22 @@ function updateDirPanel(idx) {
       `FROM\u00A0${wDir}°\u00A0${directionToCardinal(wDir)}`;
     document.getElementById('drWindSpd').textContent = `${wSpd}\u00A0km/h`;
 
-    // REL row — hero section
+    // REL row — hero section; arrow scales with wind speed
     const cls         = classifyRelativeWind(h, wDir);
     const absDeg      = Math.round(cls.absDelta);
     const relArrowRot = normalizeAngle(windTo - h);
     document.getElementById('drRelNeedle').setAttribute('transform', `rotate(${relArrowRot},11,11)`);
     document.getElementById('drRelArrow').setAttribute('fill', cls.color);
     document.getElementById('drRelNeedleLine').setAttribute('stroke', cls.color + 'aa');
-    document.getElementById('drRelVal').textContent = `${absDeg}°`;
+    document.getElementById('drRelVal').textContent = `${absDeg}° · ${wSpd} km/h`;
+    // Scale arrow geometry by speed: 0 km/h = tiny, 50+ km/h = full size
+    const wf = Math.min(1, Math.max(0, wSpd / 50));
+    const hw = (1.5 + wf * 4).toFixed(1);      // arrowhead half-width
+    const needleY1 = (19 - wf * 6).toFixed(1); // needle tail (shorter at low speed)
+    const sw = (1.5 + wf * 2.5).toFixed(1);    // stroke width
+    document.getElementById('drRelArrow').setAttribute('points', `11,2.5 ${11 - hw},8 ${11 + hw},8`);
+    document.getElementById('drRelNeedleLine').setAttribute('y1', needleY1);
+    document.getElementById('drRelNeedleLine').setAttribute('stroke-width', sw);
     const lbl = document.getElementById('drRelLabel');
     lbl.textContent = cls.label;
     lbl.style.color = cls.color;
@@ -1134,6 +1136,23 @@ let posMarker  = null;
 function initMap() {
   leafletMap = L.map('mapInset', { zoomControl: false, attributionControl: false });
   L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19 }).addTo(leafletMap);
+
+  // Tap/click map → jump to nearest sampled point
+  leafletMap.on('click', e => {
+    if (!state.sampled.length) return;
+    const { lat, lng } = e.latlng;
+    let bestIdx = 0, bestDist = Infinity;
+    for (let i = 0; i < state.sampled.length; i++) {
+      const pt = state.sampled[i];
+      const d = (pt.lat - lat) ** 2 + (pt.lon - lng) ** 2;
+      if (d < bestDist) { bestDist = d; bestIdx = i; }
+    }
+    goTo(bestIdx);
+  });
+}
+
+function mapFitRoute() {
+  if (routeLayer) leafletMap.fitBounds(routeLayer.getBounds(), { padding: [24, 24] });
 }
 
 function drawRoute(sampled) {
@@ -1169,29 +1188,51 @@ function updateMapMarker(idx) {
 // ═══════════════════════════════════════════════════════════════════
 // Elevation profile (SVG sparkline)
 // ═══════════════════════════════════════════════════════════════════
+// Gradient colour by steepness
+function _gradColor(pct) {
+  const a = Math.abs(pct);
+  if (a < 2)  return '#60a5fa'; // flat — blue
+  if (a < 5)  return '#fbbf24'; // moderate — yellow
+  if (a < 8)  return '#f97316'; // steep — orange
+  return '#ef4444';              // very steep — red
+}
+
 function drawElevProfile(sampled) {
   const svg = document.getElementById('elevSvg');
-  const elevs = sampled.map(p => p.ele);
-  const minE = Math.min(...elevs), maxE = Math.max(...elevs);
-  const range = maxE - minE || 1;
-  const W = 800, H = 60, pad = 4;
+  if (sampled.length < 2) { svg.innerHTML = ''; return; }
 
-  const pts = sampled.map((p, i) => {
-    const x = (i / (sampled.length - 1)) * W;
-    const y = H - pad - ((p.ele - minE) / range) * (H - 2*pad);
-    return `${x},${y}`;
+  const elevs = sampled.map(p => p.ele);
+  const minE  = Math.min(...elevs), maxE = Math.max(...elevs);
+  const range = maxE - minE || 1;
+  const W = 800, H = 80, pad = 6;
+
+  // XY coords for each point
+  const coords = sampled.map((p, i) => ({
+    x: (i / (sampled.length - 1)) * W,
+    y: H - pad - ((p.ele - minE) / range) * (H - 2 * pad),
+  }));
+
+  // Per-segment gradient (between i and i+1)
+  const segGrads = sampled.map((p, i) => {
+    if (i === sampled.length - 1) return 0;
+    const next = sampled[i + 1];
+    const dDist = next.dist - p.dist;
+    return dDist < 1 ? 0 : (next.ele - p.ele) / dDist * 100;
   });
 
-  svg.innerHTML = `
-    <defs>
-      <linearGradient id="elevGrad" x1="0" y1="0" x2="0" y2="1">
-        <stop offset="0%" stop-color="#1f3b88" stop-opacity="0.3"/>
-        <stop offset="100%" stop-color="#1f3b88" stop-opacity="0.05"/>
-      </linearGradient>
-    </defs>
-    <polygon points="${pts.join(' ')} ${W},${H} 0,${H}" fill="url(#elevGrad)"/>
-    <polyline points="${pts.join(' ')}" fill="none" stroke="#1f3b88" stroke-width="1.5"/>
-  `;
+  // Build filled area segments coloured by gradient
+  let paths = '';
+  for (let i = 0; i < coords.length - 1; i++) {
+    const { x: x1, y: y1 } = coords[i];
+    const { x: x2, y: y2 } = coords[i + 1];
+    const col = _gradColor(segGrads[i]);
+    // Filled trapezoid to the bottom
+    paths += `<polygon points="${x1},${y1} ${x2},${y2} ${x2},${H} ${x1},${H}" fill="${col}" fill-opacity="0.28"/>`;
+    // Top stroke segment
+    paths += `<line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}" stroke="${col}" stroke-width="2" stroke-linecap="round"/>`;
+  }
+
+  svg.innerHTML = paths;
 
   document.getElementById('elevMin').textContent = `${Math.round(minE)} m`;
   document.getElementById('elevMax').textContent = `${Math.round(maxE)} m`;
@@ -1355,15 +1396,13 @@ async function goTo(idx) {
   const ovDist = document.getElementById('ovDist');
   ovDist.querySelector('.dist-done').textContent = `${doneDist} km`;
   ovDist.querySelector('.dist-togo').textContent = `To go: ${toGoDist} km`;
-  document.getElementById('ovPct').textContent = `${Math.round(pct)}%`;
   document.getElementById('ovBarFill').style.width = pct + '%';
 
-  // Update gradient
+  // Update gradient — show as +3.5% / -2.1% / flat
   const grad = calcGradient(idx);
   const absGrad = Math.abs(grad);
   const gradEl = document.getElementById('ovGrad');
-  const sign = grad > 0.2 ? '▲' : grad < -0.2 ? '▼' : '—';
-  gradEl.textContent = `${sign} ${absGrad.toFixed(1)}%`;
+  gradEl.textContent = absGrad < 0.2 ? 'flat' : (grad > 0 ? `+${grad.toFixed(1)}%` : `${grad.toFixed(1)}%`);
   gradEl.style.color = absGrad >= 8 ? '#ff5555' : absGrad >= 5 ? '#ffa500' : absGrad >= 2 ? '#ffd700' : '#fff';
 
   // Update directional panel (heading + wind) — before image fetch for instant feedback
@@ -1482,10 +1521,10 @@ function processSampled() {
 }
 
 function showOverlays(show) {
-  ['ovDist','ovPct','ovBar','ovGrad'].forEach(id =>
+  ['ovDist','ovBar','ovGrad'].forEach(id =>
     document.getElementById(id).classList.toggle('hidden', !show));
   document.getElementById('dirPanel').classList.toggle('hidden', !show);
-  document.getElementById('mapInset').classList.toggle('hidden', !show);
+  document.getElementById('mapWrap').classList.toggle('hidden', !show);
   if (show && leafletMap) setTimeout(() => leafletMap.invalidateSize(), 100);
 }
 
@@ -1559,6 +1598,13 @@ document.addEventListener('DOMContentLoaded', () => {
   initMap();
   initDrop();
   initWindUI();
+
+  // Scroll wheel over the Street View image → step through frames
+  document.getElementById('svWrap').addEventListener('wheel', e => {
+    if (!state.sampled.length) return;
+    e.preventDefault();
+    playerStep(e.deltaY > 0 ? 1 : -1);
+  }, { passive: false });
 });
 </script>
 </body>
