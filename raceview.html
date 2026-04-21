@@ -97,8 +97,8 @@ input#gpxFile{display:none}
 .sv-pane{flex:1;min-width:0}
 .map-pane{width:200px;flex-shrink:0;border-radius:8px;overflow:hidden;background:#0a1020;position:relative;min-height:160px}
 .map-pane #mapInset{width:100%;height:100%;cursor:crosshair}
-.map-home-btn{position:absolute;top:6px;right:6px;width:22px;height:22px;background:rgba(10,16,32,.78);border:none;border-radius:4px;color:#fff;font-size:14px;cursor:pointer;line-height:1;backdrop-filter:blur(6px);z-index:20;display:flex;align-items:center;justify-content:center;transition:background .15s}
-.map-home-btn:hover{background:rgba(31,59,136,.95)}
+.map-ctrl-btn{position:absolute;right:6px;width:24px;height:24px;background:rgba(10,16,32,.88);border:1px solid rgba(255,255,255,.22);border-radius:5px;color:#fff;font-size:14px;cursor:pointer;line-height:1;backdrop-filter:blur(8px);z-index:20;display:flex;align-items:center;justify-content:center;transition:background .15s;box-shadow:0 1px 4px rgba(0,0,0,.4)}
+.map-ctrl-btn:hover{background:rgba(31,59,136,.95);border-color:rgba(255,255,255,.45)}
 @media(max-width:900px){.viewer-top{flex-direction:column}.map-pane{width:100%;height:180px}.sv-map-divider{display:none}}
 /* ── Resize divider ─────────────────────────────────────────── */
 .sv-map-divider{width:10px;flex-shrink:0;cursor:col-resize;display:flex;align-items:center;justify-content:center;opacity:0;transition:opacity .2s;border-radius:4px;margin:0 -3px;z-index:2}
@@ -370,17 +370,12 @@ input#gpxFile{display:none}
               <!-- Triangle at top = rider-forward. Headwind: arrow↓. Tailwind: arrow↑ -->
               <div class="dir-row hidden" id="drRel">
                 <span class="dr-label">REL</span>
-                <svg class="dr-icon" width="20" height="20" viewBox="0 0 18 18">
-                  <defs>
-                    <filter id="relGlow" x="-60%" y="-60%" width="220%" height="220%">
-                      <feGaussianBlur in="SourceGraphic" stdDeviation="1.4" result="b"/>
-                      <feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
-                    </filter>
-                  </defs>
-                  <g id="drRelNeedle" transform="rotate(0,9,9)" filter="url(#relGlow)">
-                    <line id="drRelNeedleLine" x1="9" y1="15" x2="9" y2="5" stroke="#ffa500bb" stroke-width="2.5" stroke-linecap="round"/>
-                    <polygon id="drRelArrow" points="9,2 6.5,7 11.5,7" fill="#ffa500"/>
-                    <circle id="drRelPivot" cx="9" cy="9" r="1.8" fill="rgba(255,255,255,.3)"/>
+                <svg class="dr-icon" width="20" height="20" viewBox="0 0 20 20">
+                  <g id="drRelNeedle" transform="rotate(0,10,10)">
+                    <!-- Single notched block-arrow path, updated dynamically by JS -->
+                    <path id="drRelArrow"
+                      d="M10,2 L14.5,8 L11.5,6.5 L11.5,16 L8.5,16 L8.5,6.5 L5.5,8 Z"
+                      fill="#ffa500"/>
                   </g>
                 </svg>
                 <div style="display:flex;flex-direction:column;gap:3px">
@@ -427,7 +422,9 @@ input#gpxFile{display:none}
           <!-- Map side panel — shown when route is loaded -->
           <div class="map-pane hidden" id="mapPane">
             <div id="mapInset" style="width:100%;height:100%"></div>
-            <button class="map-home-btn" onclick="mapFitRoute()" title="Fit route">⌂</button>
+            <button class="map-ctrl-btn" onclick="mapFitRoute()" title="Fit route" style="top:6px">⌂</button>
+            <button class="map-ctrl-btn" onclick="leafletMap.zoomIn()" title="Zoom in" style="top:34px;font-size:18px;font-weight:700">+</button>
+            <button class="map-ctrl-btn" onclick="leafletMap.zoomOut()" title="Zoom out" style="top:62px;font-size:18px;font-weight:700">−</button>
           </div>
           </div><!-- /viewer-top -->
 
@@ -444,18 +441,14 @@ input#gpxFile{display:none}
           </div>
         </div>
 
-        <!-- Player controls — scrub with the bar or scroll over the image; tap the map to jump -->
+        <!-- Player controls — step buttons only; navigate via elevation profile drag or map tap -->
         <div class="player hidden" id="playerControls">
-          <div class="player-seek">
-            <input type="range" id="seekBar" min="0" max="100" value="0" step="1" oninput="onSeek(this.value)">
-            <span class="time" id="seekLabel">0.0 / 0.0 km</span>
-          </div>
           <div class="player-btns">
             <button title="Back 10 frames" onclick="playerStep(-10)">⏮</button>
             <button title="Previous frame"  onclick="playerStep(-1)">◀</button>
             <button title="Next frame"      onclick="playerStep(1)">▶</button>
             <button title="Forward 10 frames" onclick="playerStep(10)">⏭</button>
-            <span style="margin-left:auto;font-size:11px;color:var(--sub)">scroll image or tap map to navigate</span>
+            <span style="margin-left:auto;font-size:11px;color:var(--sub)">drag profile · scroll image · tap map</span>
           </div>
         </div>
 
@@ -989,22 +982,23 @@ function updateDirPanel(idx) {
       `FROM\u00A0${wDir}°\u00A0${directionToCardinal(wDir)}`;
     document.getElementById('drWindSpd').textContent = `${wSpd}\u00A0km/h`;
 
-    // REL row — hero section; arrow scales with wind speed
+    // REL row — notched block-arrow, scales with wind speed
     const cls         = classifyRelativeWind(h, wDir);
     const absDeg      = Math.round(cls.absDelta);
     const relArrowRot = normalizeAngle(windTo - h);
-    document.getElementById('drRelNeedle').setAttribute('transform', `rotate(${relArrowRot},9,9)`);
-    document.getElementById('drRelArrow').setAttribute('fill', cls.color);
-    document.getElementById('drRelNeedleLine').setAttribute('stroke', cls.color + 'aa');
+    document.getElementById('drRelNeedle').setAttribute('transform', `rotate(${relArrowRot},10,10)`);
     document.getElementById('drRelVal').textContent = `${absDeg}° · ${wSpd} km/h`;
-    // Scale arrow geometry by speed: 0 km/h = tiny, 50+ km/h = full size
-    const wf = Math.min(1, Math.max(0, wSpd / 50));
-    const hw = (1.5 + wf * 3.5).toFixed(1);    // arrowhead half-width
-    const needleY1 = (16 - wf * 5).toFixed(1); // needle tail (shorter at low speed)
-    const sw = (1.5 + wf * 2).toFixed(1);      // stroke width
-    document.getElementById('drRelArrow').setAttribute('points', `9,2 ${9 - hw},7 ${9 + hw},7`);
-    document.getElementById('drRelNeedleLine').setAttribute('y1', needleY1);
-    document.getElementById('drRelNeedleLine').setAttribute('stroke-width', sw);
+    // Scale geometry: 0 km/h = slim short arrow, 50+ km/h = wide full arrow
+    const wf    = Math.min(1, Math.max(0, wSpd / 50));
+    const hw    = 2 + wf * 3.5;          // arrowhead half-width: 2 → 5.5
+    const sw    = 1.2 + wf * 0.8;        // shaft half-width: 1.2 → 2
+    const tailY = 17 - wf * 3;           // tail Y: shorter shaft at low speed
+    const nx    = (10 + sw).toFixed(1), px = (10 - sw).toFixed(1);
+    const hx    = (10 + hw).toFixed(1), lx = (10 - hw).toFixed(1);
+    const ty    = tailY.toFixed(1);
+    const arr = document.getElementById('drRelArrow');
+    arr.setAttribute('d', `M10,2 L${hx},8 L${nx},6.5 L${nx},${ty} L${px},${ty} L${px},6.5 L${lx},8 Z`);
+    arr.setAttribute('fill', cls.color);
     const lbl = document.getElementById('drRelLabel');
     lbl.textContent = cls.label;
     lbl.style.color = cls.color;
@@ -1223,13 +1217,19 @@ function updateMapMarker(idx) {
 // ═══════════════════════════════════════════════════════════════════
 // Elevation profile (SVG sparkline)
 // ═══════════════════════════════════════════════════════════════════
-// Gradient colour by steepness
+// Gradient colour — warm for uphill, cool for downhill
 function _gradColor(pct) {
   const a = Math.abs(pct);
-  if (a < 2)  return '#60a5fa'; // flat — blue
-  if (a < 5)  return '#fbbf24'; // moderate — yellow
-  if (a < 8)  return '#f97316'; // steep — orange
-  return '#ef4444';              // very steep — red
+  if (a < 2)   return '#94a3b8';  // flat — neutral grey-blue
+  if (pct > 0) {
+    if (a < 5)  return '#fbbf24'; // uphill moderate — amber
+    if (a < 8)  return '#f97316'; // uphill steep — orange
+    return '#ef4444';             // uphill very steep — red
+  } else {
+    if (a < 5)  return '#34d399'; // downhill moderate — emerald
+    if (a < 8)  return '#60a5fa'; // downhill steep — blue
+    return '#818cf8';             // downhill very steep — indigo
+  }
 }
 
 function drawElevProfile(sampled) {
@@ -1473,11 +1473,7 @@ async function goTo(idx) {
   const pt = state.sampled[idx];
   const total = state.totalDist;
 
-  // Update seek bar
   const pct = total > 0 ? (pt.dist / total) * 100 : 0;
-  document.getElementById('seekBar').value = pct;
-  document.getElementById('seekLabel').textContent =
-    `${(pt.dist/1000).toFixed(1)} / ${(total/1000).toFixed(1)} km`;
 
   // Update overlays
   const doneDist = (pt.dist / 1000).toFixed(2);
@@ -1614,11 +1610,6 @@ function processSampled() {
   // Enable player
   document.getElementById('playerControls').classList.remove('hidden');
   showOverlays(true);
-
-  // Update seek bar
-  document.getElementById('seekBar').max = 100;
-  document.getElementById('seekBar').value = 0;
-  document.getElementById('seekLabel').textContent = `0.0 / ${(state.totalDist/1000).toFixed(1)} km`;
 
   goTo(0);
   document.getElementById('applyWrap').classList.add('hidden');
