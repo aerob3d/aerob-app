@@ -106,9 +106,9 @@ input#gpxFile{display:none}
 .sv-map-divider::after{content:'';width:3px;height:36px;background:rgba(255,255,255,.35);border-radius:2px;box-shadow:0 0 6px rgba(0,0,0,.4)}
 
 /* ── Unified directional panel (HDG / WIND / REL) ──────────────── */
-.dir-panel{position:absolute;top:52px;left:14px;background:rgba(10,16,32,.78);border-radius:8px;backdrop-filter:blur(8px);pointer-events:none;overflow:hidden;min-width:170px}
-.dir-row{display:flex;align-items:center;gap:7px;padding:5px 12px 5px 8px}
-.dir-row+.dir-row{border-top:1px solid rgba(255,255,255,.07)}
+.dir-panel{display:flex;flex-direction:row;align-items:center;flex-wrap:wrap;background:rgba(10,16,32,.88);border-radius:8px;overflow:hidden;margin-top:8px}
+.dir-row{display:flex;align-items:center;gap:7px;padding:5px 12px 5px 10px}
+.dir-row+.dir-row{border-left:1px solid rgba(255,255,255,.07)}
 .dr-icon{flex-shrink:0}
 .dr-label{font-size:9px;font-weight:800;letter-spacing:.9px;text-transform:uppercase;color:rgba(255,255,255,.38);min-width:28px;font-family:var(--mono)}
 .dr-val{font-size:12px;font-weight:700;color:#fff;white-space:nowrap;font-family:var(--mono)}
@@ -332,77 +332,6 @@ input#gpxFile{display:none}
             <img class="sv-img hidden" id="svImg" alt="Street View">
             <!-- Distance (top-left) -->
             <div class="sv-overlay-dist hidden" id="ovDist"><span class="dist-done">0.00 km</span><span class="dist-togo">To go: —</span></div>
-            <!-- Unified directional panel: HDG / WIND / REL -->
-            <div class="dir-panel hidden" id="dirPanel">
-
-              <!-- HDG — route travel direction -->
-              <div class="dir-row">
-                <span class="dr-label">HDG</span>
-                <svg class="dr-icon" width="22" height="22" viewBox="0 0 22 22">
-                  <circle cx="11" cy="11" r="10" fill="none" stroke="rgba(255,255,255,.18)" stroke-width="1"/>
-                  <g id="drHdgNeedle" transform="rotate(0,11,11)">
-                    <line x1="11" y1="19" x2="11" y2="7" stroke="rgba(255,255,255,.5)" stroke-width="1.5" stroke-linecap="round"/>
-                    <polygon points="11,3 9,8 13,8" fill="#fff"/>
-                  </g>
-                  <circle cx="11" cy="11" r="1.5" fill="rgba(255,255,255,.35)"/>
-                </svg>
-                <span class="dr-val" id="drHdgVal">—</span>
-              </div>
-
-              <!-- WIND — absolute wind-from direction + speed (hidden when wind=off) -->
-              <div class="dir-row hidden" id="drWind">
-                <span class="dr-label">WIND</span>
-                <svg class="dr-icon" width="22" height="22" viewBox="0 0 22 22">
-                  <circle cx="11" cy="11" r="10" fill="none" stroke="rgba(255,255,255,.18)" stroke-width="1"/>
-                  <g id="drWindNeedle" transform="rotate(0,11,11)">
-                    <line x1="11" y1="19" x2="11" y2="7" stroke="rgba(96,165,250,.6)" stroke-width="1.5" stroke-linecap="round"/>
-                    <polygon points="11,3 9,8 13,8" fill="#60a5fa"/>
-                  </g>
-                  <circle cx="11" cy="11" r="1.5" fill="rgba(255,255,255,.35)"/>
-                </svg>
-                <div style="display:flex;flex-direction:column;gap:1px">
-                  <span class="dr-val" id="drWindVal">—</span>
-                  <span class="dr-sub" id="drWindSpd"></span>
-                </div>
-              </div>
-
-              <!-- REL — hero row: wind in rider frame (most actionable metric) -->
-              <!-- Triangle at top = rider-forward. Headwind: arrow↓. Tailwind: arrow↑ -->
-              <div class="dir-row hidden" id="drRel">
-                <span class="dr-label">REL</span>
-                <svg class="dr-icon" width="20" height="20" viewBox="0 0 20 20">
-                  <g id="drRelNeedle" transform="rotate(0,10,10)">
-                    <!-- Single notched block-arrow path, updated dynamically by JS -->
-                    <path id="drRelArrow"
-                      d="M10,2 L14.5,8 L11.5,6.5 L11.5,16 L8.5,16 L8.5,6.5 L5.5,8 Z"
-                      fill="#ffa500"/>
-                  </g>
-                </svg>
-                <div style="display:flex;flex-direction:column;gap:3px">
-                  <span class="dr-val" id="drRelVal">—</span>
-                  <span class="dr-sub" id="drRelLabel" style="color:#ffa500">—</span>
-                </div>
-              </div>
-
-              <!-- TEMP + HUMIDITY + RAIN — weather mode only -->
-              <div class="dir-row hidden" id="drTempRain">
-                <span class="dr-label">🌡</span>
-                <span class="dr-val" id="drTempVal" style="font-size:11px">—</span>
-                <div class="dr-divider"></div>
-                <span class="dr-label">💧</span>
-                <span class="dr-val" id="drHumVal" style="font-size:11px">—</span>
-                <div class="dr-divider"></div>
-                <span class="dr-label">🌧</span>
-                <span class="dr-val" id="drRainVal" style="font-size:11px">—</span>
-              </div>
-
-              <!-- ETA — weather mode only -->
-              <div class="dir-row hidden" id="drEta">
-                <span class="dr-label">ETA</span>
-                <span class="dr-val" id="drEtaVal">—</span>
-              </div>
-
-            </div>
             <!-- Gradient (bottom-left) with visual ramp -->
             <div class="sv-overlay-grad hidden" id="ovGrad">
               <svg width="28" height="16" viewBox="0 0 28 16" style="flex-shrink:0">
@@ -427,6 +356,76 @@ input#gpxFile{display:none}
             <button class="map-ctrl-btn" onclick="leafletMap.zoomOut()" title="Zoom out" style="top:62px;font-size:18px;font-weight:700">−</button>
           </div>
           </div><!-- /viewer-top -->
+
+          <!-- Directional panel: HDG / WIND / REL — outside image -->
+          <div class="dir-panel hidden" id="dirPanel">
+
+            <!-- HDG — route travel direction -->
+            <div class="dir-row">
+              <span class="dr-label">HDG</span>
+              <svg class="dr-icon" width="22" height="22" viewBox="0 0 22 22">
+                <circle cx="11" cy="11" r="10" fill="none" stroke="rgba(255,255,255,.18)" stroke-width="1"/>
+                <g id="drHdgNeedle" transform="rotate(0,11,11)">
+                  <line x1="11" y1="19" x2="11" y2="7" stroke="rgba(255,255,255,.5)" stroke-width="1.5" stroke-linecap="round"/>
+                  <polygon points="11,3 9,8 13,8" fill="#fff"/>
+                </g>
+                <circle cx="11" cy="11" r="1.5" fill="rgba(255,255,255,.35)"/>
+              </svg>
+              <span class="dr-val" id="drHdgVal">—</span>
+            </div>
+
+            <!-- WIND — absolute wind-from direction + speed (hidden when wind=off) -->
+            <div class="dir-row hidden" id="drWind">
+              <span class="dr-label">WIND</span>
+              <svg class="dr-icon" width="22" height="22" viewBox="0 0 22 22">
+                <circle cx="11" cy="11" r="10" fill="none" stroke="rgba(255,255,255,.18)" stroke-width="1"/>
+                <g id="drWindNeedle" transform="rotate(0,11,11)">
+                  <line x1="11" y1="19" x2="11" y2="7" stroke="rgba(96,165,250,.6)" stroke-width="1.5" stroke-linecap="round"/>
+                  <polygon points="11,3 9,8 13,8" fill="#60a5fa"/>
+                </g>
+                <circle cx="11" cy="11" r="1.5" fill="rgba(255,255,255,.35)"/>
+              </svg>
+              <div style="display:flex;flex-direction:column;gap:1px">
+                <span class="dr-val" id="drWindVal">—</span>
+                <span class="dr-sub" id="drWindSpd"></span>
+              </div>
+            </div>
+
+            <!-- REL — hero row: wind in rider frame (most actionable metric) -->
+            <div class="dir-row hidden" id="drRel">
+              <span class="dr-label">REL</span>
+              <svg class="dr-icon" width="20" height="20" viewBox="0 0 20 20">
+                <g id="drRelNeedle" transform="rotate(0,10,10)">
+                  <path id="drRelArrow"
+                    d="M10,2 L14.5,8 L11.5,6.5 L11.5,16 L8.5,16 L8.5,6.5 L5.5,8 Z"
+                    fill="#ffa500"/>
+                </g>
+              </svg>
+              <div style="display:flex;flex-direction:column;gap:3px">
+                <span class="dr-val" id="drRelVal">—</span>
+                <span class="dr-sub" id="drRelLabel" style="color:#ffa500">—</span>
+              </div>
+            </div>
+
+            <!-- TEMP + HUMIDITY + RAIN — weather mode only -->
+            <div class="dir-row hidden" id="drTempRain">
+              <span class="dr-label">🌡</span>
+              <span class="dr-val" id="drTempVal" style="font-size:11px">—</span>
+              <div class="dr-divider"></div>
+              <span class="dr-label">💧</span>
+              <span class="dr-val" id="drHumVal" style="font-size:11px">—</span>
+              <div class="dr-divider"></div>
+              <span class="dr-label">🌧</span>
+              <span class="dr-val" id="drRainVal" style="font-size:11px">—</span>
+            </div>
+
+            <!-- ETA — weather mode only -->
+            <div class="dir-row hidden" id="drEta">
+              <span class="dr-label">ETA</span>
+              <span class="dr-val" id="drEtaVal">—</span>
+            </div>
+
+          </div>
 
           <!-- Elevation strip — drag/click to navigate -->
           <div class="elev-strip" id="elevStrip">
