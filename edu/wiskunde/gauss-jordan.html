@@ -1,0 +1,1014 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Gauss-Jordan Eliminatie — AeroB Edu</title>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+  <script src="/edu/edu.js"></script>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    /* ── AeroB Edu header bar ─────────────────────────── */
+    :root {
+      --blue:#1f3b88;--orange:#ffa500;
+    }
+    .edu-header {
+      background: var(--blue); color: #fff;
+      padding: 12px 24px; display: flex; align-items: center; gap: 12px;
+      box-shadow: 0 2px 8px rgba(0,0,0,.18);
+    }
+    .edu-header img { height: 30px; width: auto; filter: brightness(0) invert(1); flex-shrink: 0; }
+    .edu-header h1 { font-size: 18px; font-weight: 700; letter-spacing: .4px; white-space: nowrap;
+      font-family: "Segoe UI","Inter",system-ui,sans-serif; }
+    .edu-header h1 .orange { color: var(--orange); }
+    .edu-header h1 .tag { font-size: 11px; font-weight: 600; background: rgba(255,255,255,.15);
+      padding: 2px 8px; border-radius: 10px; margin-left: 7px; letter-spacing: .3px; vertical-align: middle; }
+    .edu-header-spacer { flex: 1; }
+    .edu-user-badge { display: flex; align-items: center; gap: 9px; background: rgba(255,255,255,.12);
+      padding: 5px 12px; border-radius: 18px; flex-shrink: 0; }
+    .edu-user-badge span { font-size: 12px; font-weight: 600; font-family: "Segoe UI",system-ui,sans-serif; }
+    .edu-user-badge button { background: rgba(255,255,255,.18); border: 1px solid rgba(255,255,255,.3);
+      color: #fff; padding: 3px 10px; border-radius: 10px; font-size: 11px; cursor: pointer; transition: all .2s; }
+    .edu-user-badge button:hover { background: rgba(255,255,255,.3); }
+
+    /* ── Breadcrumb ───────────────────────────────────── */
+    .breadcrumb {
+      background: #f0f2f7; border-bottom: 1px solid #d0d7e3;
+      padding: 9px 24px; display: flex; align-items: center; gap: 6px;
+      font-size: 12px; color: #5a6880; font-family: "Segoe UI",system-ui,sans-serif;
+    }
+    .breadcrumb a { color: var(--blue); text-decoration: none; font-weight: 600; }
+    .breadcrumb a:hover { text-decoration: underline; }
+    .breadcrumb-sep { color: #94a3b8; }
+    .breadcrumb-current { color: #1a2236; font-weight: 600; }
+
+    /* ── Main tool content (dark theme) ──────────────── */
+    body {
+      font-family: 'Segoe UI', sans-serif;
+      background: #0f172a;
+      color: #e2e8f0;
+      min-height: 100vh;
+    }
+
+    .tool-body { padding: 20px; }
+
+    h1 { text-align: center; font-size: 1.7rem; margin-bottom: 4px; color: #7dd3fc; }
+    .subtitle { text-align: center; color: #94a3b8; font-size: 0.88rem; margin-bottom: 22px; }
+
+    .card {
+      background: #1e293b;
+      border-radius: 12px;
+      padding: 18px 20px;
+      margin-bottom: 18px;
+      border: 1px solid #334155;
+    }
+    .card h2 { font-size: 0.85rem; color: #7dd3fc; margin-bottom: 14px; text-transform: uppercase; letter-spacing: 0.06em; }
+
+    /* Theory card */
+    .theory-toggle {
+      display: flex; align-items: center; gap: 8px; cursor: pointer;
+      user-select: none; list-style: none;
+    }
+    .theory-toggle::-webkit-details-marker { display: none; }
+    .theory-toggle h2 { margin-bottom: 0; cursor: pointer; }
+    .toggle-icon {
+      margin-left: auto; color: #7dd3fc; font-size: 1rem;
+      transition: transform 0.2s;
+    }
+    details[open] .toggle-icon { transform: rotate(180deg); }
+    details summary { list-style: none; }
+    details summary::-webkit-details-marker { display: none; }
+
+    .theory-body { margin-top: 14px; }
+    .op-list { display: flex; flex-direction: column; gap: 8px; margin-bottom: 16px; }
+    .op-item {
+      display: flex; gap: 10px; align-items: flex-start;
+      background: #0f172a; border-radius: 8px; padding: 10px 12px;
+    }
+    .op-badge {
+      background: #1d4ed8; color: #fff; border-radius: 6px;
+      padding: 3px 8px; font-size: 0.75rem; font-weight: 700;
+      white-space: nowrap; margin-top: 1px; flex-shrink: 0;
+      font-family: 'Courier New', monospace;
+    }
+    .op-badge.swap  { background: #78350f; }
+    .op-badge.scale { background: #15803d; }
+    .op-text { font-size: 0.87rem; color: #cbd5e1; line-height: 1.45; }
+    .op-text strong { color: #f1f5f9; }
+    .op-formula {
+      font-family: 'Courier New', monospace; font-size: 0.82rem;
+      color: #7dd3fc; margin-top: 3px;
+    }
+
+    .rref-box {
+      background: #0f172a; border: 1px solid #334155; border-radius: 8px;
+      padding: 12px 14px;
+    }
+    .rref-box h3 { color: #a855f7; font-size: 0.88rem; margin-bottom: 10px; }
+    .rref-list { display: flex; flex-direction: column; gap: 6px; }
+    .rref-item { display: flex; gap: 8px; font-size: 0.84rem; color: #cbd5e1; line-height: 1.4; }
+    .rref-num {
+      background: #a855f7; color: #fff; border-radius: 50%;
+      width: 20px; height: 20px; display: flex; align-items: center; justify-content: center;
+      font-size: 0.72rem; font-weight: 700; flex-shrink: 0; margin-top: 1px;
+    }
+    .tip-box {
+      margin-top: 10px; padding: 8px 12px; border-radius: 6px;
+      background: #1e293b; border-left: 3px solid #f59e0b;
+      font-size: 0.82rem; color: #94a3b8; line-height: 1.4;
+    }
+    .tip-box strong { color: #fbbf24; }
+
+    /* Size selector */
+    .size-row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 12px; }
+    .size-row label { color: #94a3b8; font-size: 0.88rem; }
+    .size-row select {
+      background: #0f172a; border: 1px solid #475569; color: #e2e8f0;
+      border-radius: 6px; padding: 5px 8px; font-size: 0.88rem;
+    }
+    .size-sep { color: #475569; font-size: 1.1rem; }
+
+    /* Presets */
+    .preset-row { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 14px; }
+    .preset-btn {
+      background: #1e293b; border: 1px solid #475569; color: #94a3b8;
+      padding: 5px 10px; border-radius: 6px; font-size: 0.78rem; cursor: pointer;
+      transition: border-color 0.15s, color 0.15s;
+    }
+    .preset-btn:hover { border-color: #7dd3fc; color: #7dd3fc; }
+
+    /* Matrix input */
+    .matrix-wrap { display: inline-flex; align-items: stretch; gap: 0; overflow-x: auto; max-width: 100%; }
+    .bracket-l, .bracket-r {
+      width: 10px; align-self: stretch;
+      border-top: 3px solid #7dd3fc; border-bottom: 3px solid #7dd3fc; flex-shrink: 0;
+    }
+    .bracket-l { border-left: 3px solid #7dd3fc; border-radius: 4px 0 0 4px; margin-right: 6px; }
+    .bracket-r { border-right: 3px solid #7dd3fc; border-radius: 0 4px 4px 0; margin-left: 6px; }
+
+    .matrix-grid { display: grid; gap: 5px; }
+    .matrix-grid input {
+      width: 52px; height: 38px; text-align: center;
+      background: #0f172a; border: 1px solid #475569; border-radius: 6px;
+      color: #f1f5f9; font-size: 0.95rem; transition: border-color 0.2s;
+    }
+    .matrix-grid input:focus { outline: none; border-color: #7dd3fc; }
+    .divider-col { width: 2px; background: #7dd3fc; border-radius: 2px; }
+
+    /* Buttons */
+    .btn-row { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 14px; }
+    button {
+      padding: 8px 18px; border: none; border-radius: 8px; font-size: 0.88rem;
+      cursor: pointer; font-weight: 600; transition: opacity 0.15s, transform 0.1s;
+    }
+    button:active { transform: scale(0.97); }
+    button:disabled { opacity: 0.38; cursor: not-allowed; }
+    .btn-primary { background: #3b82f6; color: #fff; }
+    .btn-success { background: #22c55e; color: #fff; }
+    .btn-ghost { background: transparent; border: 1px solid #475569; color: #94a3b8; }
+
+    /* Steps */
+    #steps-container { display: flex; flex-direction: column; gap: 14px; }
+    .step-card {
+      background: #1e293b; border: 1px solid #334155;
+      border-radius: 10px; padding: 14px 16px; transition: border-color 0.3s;
+    }
+    .step-card.active { border-color: #3b82f6; box-shadow: 0 0 0 1px #3b82f64d; }
+    .step-card.done { border-color: #22c55e44; }
+
+    .step-header { display: flex; align-items: flex-start; gap: 10px; margin-bottom: 12px; }
+    .step-num {
+      background: #3b82f6; color: #fff; width: 24px; height: 24px; border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 0.78rem; font-weight: 700; flex-shrink: 0; margin-top: 2px;
+    }
+    .step-num.done-num { background: #22c55e; }
+    .step-desc { font-size: 0.88rem; color: #cbd5e1; font-style: italic; }
+
+    .step-matrix-scroll { overflow-x: auto; max-width: 100%; padding-bottom: 4px; }
+    .step-matrix { display: inline-flex; align-items: stretch; gap: 0; padding: 4px 0; }
+
+    .step-grid { display: grid; gap: 3px; }
+    .step-cell {
+      width: 58px; height: 34px; display: flex; align-items: center; justify-content: center;
+      border-radius: 5px; font-size: 0.88rem; font-family: 'Courier New', monospace;
+      background: #0f172a; border: 1px solid #1e293b; transition: background 0.4s, color 0.4s;
+    }
+    .step-cell.pivot   { background: #1d4ed8; color: #fff; border-color: #3b82f6; }
+    .step-cell.changed { background: #15803d; color: #fff; border-color: #22c55e; }
+    .step-cell.swap    { background: #78350f; border-color: #f59e0b; }
+    .step-cell.free-col { border-color: #a855f7; color: #d8b4fe; }
+
+    /* Nav */
+    #nav-row {
+      display: flex; gap: 8px; align-items: center; justify-content: center;
+      flex-wrap: wrap; margin-bottom: 14px;
+    }
+    #step-indicator { color: #94a3b8; font-size: 0.88rem; min-width: 70px; text-align: center; }
+
+    /* Solution */
+    .solution-box {
+      background: #0f172a; border: 1px solid #22c55e; border-radius: 8px;
+      padding: 12px 16px; margin-top: 14px;
+    }
+    .solution-box h3 { color: #22c55e; margin-bottom: 10px; font-size: 0.9rem; }
+    .solution-vars { display: flex; gap: 10px; flex-wrap: wrap; }
+    .var-chip {
+      background: #1e293b; border: 1px solid #334155; border-radius: 6px;
+      padding: 5px 12px; font-family: 'Courier New', monospace; font-size: 0.9rem;
+    }
+    .var-chip span { color: #7dd3fc; }
+
+    .sol-infinite { margin-top: 10px; }
+    .sol-infinite .param-title { color: #a855f7; font-size: 0.85rem; margin-bottom: 8px; font-weight: 600; }
+    .sol-equations { display: flex; flex-direction: column; gap: 4px; }
+    .sol-eq {
+      font-family: 'Courier New', monospace; font-size: 0.88rem;
+      background: #1e293b; border-radius: 5px; padding: 5px 10px;
+    }
+    .sol-eq .vname { color: #7dd3fc; }
+    .sol-eq .const { color: #f1f5f9; }
+    .sol-eq .param { color: #c084fc; }
+    .sol-eq .free-tag { color: #a855f7; font-style: italic; }
+
+    .no-solution  { color: #f87171; font-weight: 600; margin-top: 8px; }
+    .no-solution-box { border-color: #f87171 !important; }
+
+    /* Free variable legend */
+    .legend { display: flex; gap: 12px; flex-wrap: wrap; margin-bottom: 12px; font-size: 0.78rem; }
+    .legend-item { display: flex; align-items: center; gap: 5px; color: #94a3b8; }
+    .legend-dot { width: 12px; height: 12px; border-radius: 3px; flex-shrink: 0; }
+
+    .hidden { display: none !important; }
+
+    @media (max-width: 480px) {
+      .tool-body { padding: 10px; }
+      .card { padding: 12px 10px; }
+      .matrix-grid input { width: 42px; height: 34px; font-size: 0.82rem; }
+      .step-cell { width: 46px; height: 30px; font-size: 0.8rem; }
+    }
+    @media (max-width: 340px) {
+      .tool-body { padding: 6px; }
+      .card { padding: 10px 8px; }
+      .matrix-grid input { width: 36px; height: 30px; font-size: 0.75rem; }
+      .step-cell { width: 38px; height: 28px; font-size: 0.72rem; }
+      .step-grid { gap: 2px; }
+    }
+  </style>
+</head>
+<body>
+
+<!-- ── AeroB Edu header ──────────────────────────────── -->
+<div class="edu-header">
+  <img src="/Logo.png" alt="AeroB">
+  <h1>Aero<span class="orange">B</span><span class="tag">Edu</span></h1>
+  <div class="edu-header-spacer"></div>
+  <div class="edu-user-badge hidden" id="userBadge">
+    <span id="userDisplay">—</span>
+    <button onclick="eduDoLogout()">Afmelden</button>
+  </div>
+</div>
+
+<!-- ── Breadcrumb ────────────────────────────────────── -->
+<div class="breadcrumb">
+  <a href="/edu/">AeroB Edu</a>
+  <span class="breadcrumb-sep">›</span>
+  <a href="/edu/">Wiskunde</a>
+  <span class="breadcrumb-sep">›</span>
+  <span class="breadcrumb-current">Gauss-Jordan eliminatie</span>
+</div>
+
+<!-- ── Tool ─────────────────────────────────────────── -->
+<div class="tool-body">
+
+<h1>Gauss-Jordan Eliminatie</h1>
+<p class="subtitle">Stap-voor-stap · vierkante en niet-vierkante matrices · vrije variabelen</p>
+
+<details class="card">
+  <summary class="theory-toggle">
+    <h2 style="margin-bottom:0">Theorie</h2>
+    <span class="toggle-icon">&#9660;</span>
+  </summary>
+  <div class="theory-body">
+
+    <p style="font-size:0.87rem;color:#94a3b8;margin-bottom:12px;">
+      Gauss-Jordan eliminatie zet een stelsel om naar de <strong style="color:#e2e8f0">rijcanonieke vorm</strong>
+      via drie elementaire rijoperaties. Vanuit die vorm lees je de oplossing direct af.
+    </p>
+
+    <div class="op-list">
+      <div class="op-item">
+        <div class="op-badge swap">R&#x1D456; ↔ R&#x1D457;</div>
+        <div class="op-text">
+          <strong>Rijwissel</strong> — wissel twee rijen om.<br>
+          <div class="op-formula">R₁ ↔ R₂</div>
+        </div>
+      </div>
+      <div class="op-item">
+        <div class="op-badge scale">λ·R&#x1D456;</div>
+        <div class="op-text">
+          <strong>Schaling</strong> — vermenigvuldig een rij met een getal λ ≠ 0.<br>
+          <div class="op-formula">R₁ ← (1/3)·R₁</div>
+        </div>
+      </div>
+      <div class="op-item">
+        <div class="op-badge">R&#x1D456; + λ·R&#x1D457;</div>
+        <div class="op-text">
+          <strong>Rijoptelling</strong> — tel een veelvoud van één rij op bij een andere.<br>
+          <div class="op-formula">R₂ ← R₂ − 2·R₁</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="rref-box">
+      <h3>Rijcanonieke matrix (RREF)</h3>
+      <div class="rref-list">
+        <div class="rref-item"><div class="rref-num">1</div>Elke nulrij staat onderaan de matrix.</div>
+        <div class="rref-item"><div class="rref-num">2</div>De eerste niet-nul ingang van elke niet-nulrij is een <strong>spil = 1</strong>.</div>
+        <div class="rref-item"><div class="rref-num">3</div>Elke spil staat rechts van de spil erboven (<em>trapvorm</em>).</div>
+        <div class="rref-item"><div class="rref-num">4</div>Elke spil is de <strong>enige</strong> niet-nul ingang in zijn kolom.</div>
+      </div>
+      <div class="tip-box">
+        <strong>Oplossing aflezen:</strong> kolommen <em>mét</em> spil → <em>hoofdonbekenden</em> (volledig bepaald).
+        Kolommen <em>zonder</em> spil → <em>nevenonbekenden</em> (vrij te kiezen, parameter t, s, …).
+        Rij [0 0 … 0 | 0] → <em>overtollige vergelijking</em> (weglaten).
+        Rij [0 0 … 0 | c≠0] → <em>valse vergelijking</em> → stelsel is <em>strijdig</em>.
+      </div>
+    </div>
+
+    <div style="margin-top:14px;">
+      <div class="rref-box" style="border-color:#334155;">
+        <h3 style="color:#7dd3fc;">Aantal oplossingen</h3>
+        <p style="font-size:0.82rem;color:#94a3b8;margin-bottom:10px;">
+          Laat <em>r</em> = rang(A) en <em>n</em> = aantal onbekenden.
+        </p>
+        <div style="display:flex;flex-direction:column;gap:6px;">
+
+          <div style="display:flex;gap:10px;align-items:flex-start;background:#0f172a;border-radius:8px;padding:10px 12px;border-left:3px solid #22c55e;">
+            <div style="font-size:1.1rem;flex-shrink:0;">1</div>
+            <div style="font-size:0.85rem;color:#cbd5e1;line-height:1.5;">
+              <strong style="color:#22c55e;">Bepaald stelsel</strong> — juist één oplossing<br>
+              r = n &nbsp;(rang = aantal onbekenden)<br>
+              <span style="color:#94a3b8;font-size:0.8rem;">Alle onbekenden zijn hoofdonbekenden. De oplossing staat direct in de rijcanonieke matrix.</span>
+            </div>
+          </div>
+
+          <div style="display:flex;gap:10px;align-items:flex-start;background:#0f172a;border-radius:8px;padding:10px 12px;border-left:3px solid #a855f7;">
+            <div style="font-size:1.1rem;flex-shrink:0;">∞</div>
+            <div style="font-size:0.85rem;color:#cbd5e1;line-height:1.5;">
+              <strong style="color:#a855f7;">Onbepaald stelsel</strong> — oneindig veel oplossingen<br>
+              r &lt; n &nbsp;→ &nbsp;<em>k = n − r</em> vrijheidsgraden<br>
+              <span style="color:#94a3b8;font-size:0.8rem;"><em>k</em> nevenonbekenden vrij kiezen (parameter t, s, …); hoofdonbekenden worden daardoor vastgelegd. Bij k = 1: <em>enkelvoudig onbepaald</em>, bij k = 2: <em>tweevoudig onbepaald</em>, enz.</span>
+            </div>
+          </div>
+
+          <div style="display:flex;gap:10px;align-items:flex-start;background:#0f172a;border-radius:8px;padding:10px 12px;border-left:3px solid #f87171;">
+            <div style="font-size:1.1rem;flex-shrink:0;">∅</div>
+            <div style="font-size:0.85rem;color:#cbd5e1;line-height:1.5;">
+              <strong style="color:#f87171;">Strijdig stelsel</strong> — geen oplossing<br>
+              rang(A) &lt; rang([A|b])<br>
+              <span style="color:#94a3b8;font-size:0.8rem;">Er verschijnt een <em>valse vergelijking</em> van de vorm 0 = c (c ≠ 0). Het stelsel is tegenstrijdig.</span>
+            </div>
+          </div>
+
+        </div>
+      </div>
+    </div>
+
+  </div>
+</details>
+
+<div class="card">
+  <h2>Stelsel instellen</h2>
+
+  <div class="size-row">
+    <label>Vergelijkingen:</label>
+    <select id="sel-rows" onchange="rebuild()">
+      <option value="2">2</option>
+      <option value="3" selected>3</option>
+      <option value="4">4</option>
+      <option value="5">5</option>
+    </select>
+    <span class="size-sep">×</span>
+    <label>Onbekenden:</label>
+    <select id="sel-cols" onchange="rebuild()">
+      <option value="2">2</option>
+      <option value="3" selected>3</option>
+      <option value="4">4</option>
+      <option value="5">5</option>
+    </select>
+  </div>
+
+  <div class="preset-row" id="presets"></div>
+  <div class="matrix-wrap" id="matrix-wrap"></div>
+
+  <div class="btn-row">
+    <button class="btn-primary" onclick="startSolve()">Oplossen</button>
+    <button class="btn-ghost" onclick="clearMatrix()">Wissen</button>
+  </div>
+  <div style="margin-top:10px;">
+    <div style="font-size:0.78rem;color:#64748b;margin-bottom:6px;text-transform:uppercase;letter-spacing:0.05em;">Willekeurig genereren</div>
+    <div class="btn-row" style="margin-top:0;">
+      <button class="btn-ghost" onclick="randomMatrix()" title="Volledig willekeurig">Willekeurig</button>
+      <button style="background:#15803d;color:#fff;padding:8px 14px;border:none;border-radius:8px;font-size:0.85rem;font-weight:600;cursor:pointer;" onclick="randomByType('unique')" title="Matrix met unieke oplossing">✓ 1 opl.</button>
+      <button style="background:#6d28d9;color:#fff;padding:8px 14px;border:none;border-radius:8px;font-size:0.85rem;font-weight:600;cursor:pointer;" onclick="randomByType('infinite')" title="Matrix met oneindig veel oplossingen">∞ opl.</button>
+      <button style="background:#b91c1c;color:#fff;padding:8px 14px;border:none;border-radius:8px;font-size:0.85rem;font-weight:600;cursor:pointer;" onclick="randomByType('none')" title="Matrix zonder oplossing">∅ geen opl.</button>
+    </div>
+  </div>
+</div>
+
+<div class="card" id="steps-card" style="display:none;">
+  <h2>Stappen</h2>
+  <div id="nav-row">
+    <button class="btn-ghost" id="btn-prev" onclick="showStep(currentStep-1)">&#8592; Vorige</button>
+    <span id="step-indicator"></span>
+    <button class="btn-ghost" id="btn-next" onclick="showStep(currentStep+1)">Volgende &#8594;</button>
+    <button class="btn-success" onclick="showAll()">Alle stappen</button>
+  </div>
+  <div class="legend">
+    <div class="legend-item"><div class="legend-dot" style="background:#1d4ed8;border:1px solid #3b82f6"></div> Spil</div>
+    <div class="legend-item"><div class="legend-dot" style="background:#15803d;border:1px solid #22c55e"></div> Gewijzigd</div>
+    <div class="legend-item"><div class="legend-dot" style="background:#78350f;border:1px solid #f59e0b"></div> Gewisseld</div>
+    <div class="legend-item"><div class="legend-dot" style="background:#0f172a;border:1px solid #a855f7"></div> Vrije variabele</div>
+  </div>
+  <div id="steps-container"></div>
+</div>
+
+</div><!-- .tool-body -->
+
+<script>
+  let mRows = 3, nCols = 3;
+  let allSteps = [];
+  let currentStep = 0;
+  let showingAll = false;
+
+  // ---- Presets keyed by "rows-cols" ----
+  const PRESETS = {
+    '2-2': [
+      { label: "Uniek",     data: [[2,1,5],[1,3,10]] },
+      { label: "Geen opl.", data: [[1,2,3],[2,4,7]] },
+      { label: "∞ opl.",    data: [[1,2,3],[2,4,6]] },
+    ],
+    '3-3': [
+      { label: "Uniek 1",   data: [[2,1,-1,8],[-3,-1,2,-11],[-2,1,2,-3]] },
+      { label: "Uniek 2",   data: [[1,2,3,6],[4,5,6,15],[7,8,10,25]] },
+      { label: "Geen opl.", data: [[1,1,1,6],[2,2,2,8],[3,3,3,10]] },
+    ],
+    '4-4': [
+      { label: "Uniek", data: [[1,2,0,3,9],[0,3,1,2,7],[1,0,2,1,5],[2,1,3,0,8]] },
+    ],
+    '2-3': [
+      { label: "∞ opl. (1 vrije)",  data: [[1,1,1,3],[1,2,3,6]] },
+      { label: "∞ opl. (2 vrije)",  data: [[1,2,3,6],[2,4,6,12]] },
+      { label: "Geen opl.",          data: [[1,2,3,4],[2,4,6,9]] },
+    ],
+    '2-4': [
+      { label: "∞ opl.",    data: [[1,2,1,3,10],[2,1,3,1,11]] },
+      { label: "Geen opl.", data: [[1,1,1,1,4],[2,2,2,2,9]] },
+    ],
+    '3-2': [
+      { label: "Uniek",     data: [[1,0,2],[0,1,3],[1,1,5]] },
+      { label: "Geen opl.", data: [[1,2,5],[2,3,9],[1,1,4]] },
+    ],
+    '3-4': [
+      { label: "∞ opl. (1 vrije)", data: [[1,2,1,3,10],[0,1,2,1,5],[1,3,3,4,15]] },
+      { label: "∞ opl. (2 vrije)", data: [[1,1,1,1,4],[2,2,3,3,9],[3,3,4,4,13]] },
+    ],
+    '4-3': [
+      { label: "Uniek",     data: [[1,2,1,4],[2,5,3,10],[3,6,4,13],[1,3,2,6]] },
+      { label: "Geen opl.", data: [[1,1,1,3],[2,2,2,6],[3,3,3,9],[1,1,1,4]] },
+    ],
+  };
+
+  // ---- Setup ----
+  function rebuild() {
+    mRows = parseInt(document.getElementById('sel-rows').value);
+    nCols = parseInt(document.getElementById('sel-cols').value);
+    buildMatrix();
+    buildPresets();
+    document.getElementById('steps-card').style.display = 'none';
+  }
+
+  function buildMatrix() {
+    const wrap = document.getElementById('matrix-wrap');
+    wrap.innerHTML = '';
+    const lb = document.createElement('div'); lb.className = 'bracket-l'; wrap.appendChild(lb);
+    const grid = document.createElement('div');
+    grid.className = 'matrix-grid';
+    grid.style.gridTemplateColumns = `repeat(${nCols}, auto) 3px auto`;
+    for (let r = 0; r < mRows; r++) {
+      for (let c = 0; c <= nCols; c++) {
+        if (c === nCols) {
+          const div = document.createElement('div');
+          div.className = 'divider-col';
+          grid.appendChild(div);
+        }
+        const inp = document.createElement('input');
+        inp.type = 'number'; inp.step = 'any';
+        inp.id = `cell-${r}-${c === nCols ? 'b' : c}`;
+        inp.placeholder = '0';
+        inp.addEventListener('keydown', e => { if (e.key === 'Enter') startSolve(); });
+        grid.appendChild(inp);
+      }
+    }
+    wrap.appendChild(grid);
+    const rb = document.createElement('div'); rb.className = 'bracket-r'; wrap.appendChild(rb);
+  }
+
+  function buildPresets() {
+    const row = document.getElementById('presets');
+    row.innerHTML = '';
+    const key = `${mRows}-${nCols}`;
+    (PRESETS[key] || []).forEach(p => {
+      const btn = document.createElement('button');
+      btn.className = 'preset-btn';
+      btn.textContent = p.label;
+      btn.onclick = () => loadPreset(p.data);
+      row.appendChild(btn);
+    });
+  }
+
+  function loadPreset(data) {
+    data.forEach((row, r) => {
+      row.forEach((val, c) => {
+        const id = c === nCols ? `cell-${r}-b` : `cell-${r}-${c}`;
+        const el = document.getElementById(id);
+        if (el) el.value = val;
+      });
+    });
+  }
+
+  function clearMatrix() {
+    for (let r = 0; r < mRows; r++) {
+      for (let c = 0; c <= nCols; c++) {
+        const el = document.getElementById(c === nCols ? `cell-${r}-b` : `cell-${r}-${c}`);
+        if (el) el.value = '';
+      }
+    }
+    document.getElementById('steps-card').style.display = 'none';
+  }
+
+  function randomMatrix() {
+    for (let r = 0; r < mRows; r++) {
+      for (let c = 0; c <= nCols; c++) {
+        const el = document.getElementById(c === nCols ? `cell-${r}-b` : `cell-${r}-${c}`);
+        if (el) el.value = Math.floor(Math.random() * 11) - 5;
+      }
+    }
+  }
+
+  // ---- Helpers for typed random generation ----
+  function ri(a, b) { return Math.floor(Math.random() * (b - a + 1)) + a; }
+  function rnz() { const v = ri(-3, 3); return v === 0 ? 1 : v; }
+
+  function matRank(A) {
+    const m = A.length, n = A[0].length;
+    let mat = A.map(r => [...r]);
+    let rank = 0;
+    for (let col = 0; col < n && rank < m; col++) {
+      let piv = -1;
+      for (let r = rank; r < m; r++) { if (Math.abs(mat[r][col]) > 1e-9) { piv = r; break; } }
+      if (piv === -1) continue;
+      [mat[rank], mat[piv]] = [mat[piv], mat[rank]];
+      const sc = mat[rank][col];
+      for (let c = 0; c < n; c++) mat[rank][c] /= sc;
+      for (let r = 0; r < m; r++) {
+        if (r !== rank && Math.abs(mat[r][col]) > 1e-9) {
+          const f = mat[r][col];
+          for (let c = 0; c < n; c++) mat[r][c] -= f * mat[rank][c];
+        }
+      }
+      rank++;
+    }
+    return rank;
+  }
+
+  function fillMatrix(data) {
+    data.forEach((row, r) => row.forEach((v, c) => {
+      const el = document.getElementById(c === nCols ? `cell-${r}-b` : `cell-${r}-${c}`);
+      if (el) el.value = v;
+    }));
+    document.getElementById('steps-card').style.display = 'none';
+  }
+
+  function randomByType(type) {
+    for (let attempt = 0; attempt < 300; attempt++) {
+      let data = null;
+      if (type === 'unique')   data = tryUnique();
+      if (type === 'infinite') data = tryInfinite();
+      if (type === 'none')     data = tryNone();
+      if (!data) continue;
+      const { matrix, pivotCols } = gaussJordan(data);
+      const sol = extractSolution(matrix, pivotCols);
+      if (sol.type === type) { fillMatrix(data); return; }
+    }
+    alert('Kon geen geschikte matrix genereren voor deze afmetingen. Probeer een andere grootte.');
+  }
+
+  function tryUnique() {
+    if (mRows < nCols) return null;
+    const x = Array.from({length: nCols}, () => ri(-3, 3));
+    const A = Array.from({length: mRows}, () => Array.from({length: nCols}, () => ri(-4, 4)));
+    if (matRank(A) < nCols) return null;
+    const b = A.map(row => row.reduce((s, v, c) => s + v * x[c], 0));
+    return A.map((row, r) => [...row, b[r]]);
+  }
+
+  function tryInfinite() {
+    const nPivot = Math.max(1, Math.min(mRows, nCols) - 1);
+    const B = Array.from({length: mRows}, () => Array.from({length: nPivot}, () => ri(-3, 3)));
+    if (matRank(B) < nPivot) return null;
+    const nFree = nCols - nPivot;
+    const A = B.map(row => {
+      const extra = Array.from({length: nFree}, () => {
+        const coeffs = Array.from({length: nPivot}, () => ri(-2, 2));
+        return Math.round(coeffs.reduce((s, c, i) => s + c * row[i], 0));
+      });
+      return [...row, ...extra];
+    });
+    const x = Array.from({length: nCols}, () => ri(-3, 3));
+    const b = A.map(row => row.reduce((s, v, c) => s + v * x[c], 0));
+    return A.map((row, r) => [...row, b[r]]);
+  }
+
+  function tryNone() {
+    if (mRows < 2) return null;
+    const A = Array.from({length: mRows}, () => Array.from({length: nCols}, () => ri(-3, 3)));
+    const coeffs = Array.from({length: mRows - 1}, () => ri(-2, 2));
+    A[mRows - 1] = Array.from({length: nCols}, (_, c) =>
+      Math.round(coeffs.reduce((s, cf, i) => s + cf * A[i][c], 0))
+    );
+    const x = Array.from({length: nCols}, () => ri(-3, 3));
+    const b = A.map(row => row.reduce((s, v, c) => s + v * x[c], 0));
+    const consistent = coeffs.reduce((s, cf, i) => s + cf * b[i], 0);
+    b[mRows - 1] = consistent + rnz() * ri(1, 3);
+    const augA = A.map((row, r) => [...row, b[r]]);
+    if (matRank(A) === matRank(augA)) return null;
+    return augA;
+  }
+
+  function readMatrix() {
+    const mat = [];
+    for (let r = 0; r < mRows; r++) {
+      const row = [];
+      for (let c = 0; c < nCols; c++) {
+        row.push(parseFloat(document.getElementById(`cell-${r}-${c}`).value) || 0);
+      }
+      row.push(parseFloat(document.getElementById(`cell-${r}-b`).value) || 0);
+      mat.push(row);
+    }
+    return mat;
+  }
+
+  function copyMat(m) { return m.map(r => [...r]); }
+
+  function frac(v) {
+    if (Number.isInteger(v)) return String(v);
+    const r = Math.round(v * 10000) / 10000;
+    for (let d = 2; d <= 20; d++) {
+      const n = Math.round(r * d);
+      if (Math.abs(n / d - r) < 1e-9) return n === 0 ? '0' : (d === 1 ? String(n) : `${n}/${d}`);
+    }
+    return String(Math.round(r * 1000) / 1000);
+  }
+
+  // ---- Gauss-Jordan for m×n augmented matrix ----
+  function gaussJordan(mat) {
+    const steps = [];
+    let m = copyMat(mat);
+    const augCols = nCols + 1;
+    const pivotCols = [];
+
+    steps.push({
+      matrix: copyMat(m), desc: 'Beginmatrix (uitgebreide matrix [A|b])',
+      pivotRow: -1, pivotCol: -1, changedRows: [], swapRows: []
+    });
+
+    let pivotRow = 0;
+
+    for (let col = 0; col < nCols && pivotRow < mRows; col++) {
+      let pivRow = -1;
+      for (let r = pivotRow; r < mRows; r++) {
+        if (Math.abs(m[r][col]) > 1e-10) { pivRow = r; break; }
+      }
+
+      if (pivRow === -1) {
+        steps.push({
+          matrix: copyMat(m),
+          desc: `Kolom ${col+1}: alle nullen → nevenonbekende (kolom overgeslagen)`,
+          pivotRow: -1, pivotCol: col, changedRows: [], swapRows: [], freeCol: col
+        });
+        continue;
+      }
+
+      if (pivRow !== pivotRow) {
+        [m[pivotRow], m[pivRow]] = [m[pivRow], m[pivotRow]];
+        steps.push({
+          matrix: copyMat(m),
+          desc: `R${pivotRow+1} ↔ R${pivRow+1}  (rijwissel — eerste niet-nul ingang naar boven)`,
+          pivotRow: pivotRow, pivotCol: col, changedRows: [], swapRows: [pivotRow, pivRow]
+        });
+      }
+
+      const scale = m[pivotRow][col];
+      if (Math.abs(scale - 1) > 1e-10) {
+        for (let c = 0; c < augCols; c++) m[pivotRow][c] /= scale;
+        steps.push({
+          matrix: copyMat(m),
+          desc: `R${pivotRow+1} ← (1/${frac(scale)}) · R${pivotRow+1}  →  spil = 1`,
+          pivotRow: pivotRow, pivotCol: col, changedRows: [pivotRow], swapRows: []
+        });
+      }
+
+      const toElim = [];
+      for (let r = 0; r < mRows; r++) {
+        if (r !== pivotRow && Math.abs(m[r][col]) > 1e-10) toElim.push(r);
+      }
+      for (const r of toElim) {
+        const factor = m[r][col];
+        for (let c = 0; c < augCols; c++) m[r][c] -= factor * m[pivotRow][c];
+        steps.push({
+          matrix: copyMat(m),
+          desc: `R${r+1} ← R${r+1} − (${frac(factor)}) · R${pivotRow+1}  →  kolom ${col+1}, rij ${r+1} wordt 0`,
+          pivotRow: pivotRow, pivotCol: col, changedRows: [r], swapRows: []
+        });
+      }
+
+      pivotCols.push(col);
+      pivotRow++;
+    }
+
+    steps.push({
+      matrix: copyMat(m),
+      desc: `Rijcanonieke matrix bereikt! Rang = ${pivotCols.length}, vrijheidsgraden = ${nCols - pivotCols.length}`,
+      pivotRow: -1, pivotCol: -1, changedRows: [], swapRows: [], final: true
+    });
+
+    return { steps, matrix: m, pivotCols };
+  }
+
+  // ---- Solution extraction ----
+  function extractSolution(mat, pivotCols) {
+    for (let r = 0; r < mRows; r++) {
+      const allZero = mat[r].slice(0, nCols).every(v => Math.abs(v) < 1e-10);
+      if (allZero && Math.abs(mat[r][nCols]) > 1e-10) return { type: 'none' };
+    }
+    const freeCols = [];
+    for (let c = 0; c < nCols; c++) {
+      if (!pivotCols.includes(c)) freeCols.push(c);
+    }
+    if (freeCols.length === 0) {
+      const sol = new Array(nCols).fill(0);
+      pivotCols.forEach((c, idx) => {
+        sol[c] = Math.round(mat[idx][nCols] * 1e9) / 1e9;
+      });
+      return { type: 'unique', sol };
+    }
+    const expressions = {};
+    pivotCols.forEach((pc, idx) => {
+      const expr = { constant: Math.round(mat[idx][nCols] * 1e9) / 1e9, freeCoeffs: {} };
+      freeCols.forEach(fc => {
+        const coeff = -Math.round(mat[idx][fc] * 1e9) / 1e9;
+        if (Math.abs(coeff) > 1e-10) expr.freeCoeffs[fc] = coeff;
+      });
+      expressions[pc] = expr;
+    });
+    freeCols.forEach(fc => {
+      expressions[fc] = { constant: 0, freeCoeffs: { [fc]: 1 } };
+    });
+    return { type: 'infinite', freeCols, expressions };
+  }
+
+  // ---- Rendering ----
+  const VAR_NAMES   = ['x', 'y', 'z', 'w', 'v'];
+  const PARAM_NAMES = ['t', 's', 'u', 'p', 'q'];
+
+  function varName(i)   { return i < VAR_NAMES.length   ? VAR_NAMES[i]   : `x${i+1}`; }
+  function paramName(i) { return i < PARAM_NAMES.length ? PARAM_NAMES[i] : `t${i+1}`; }
+
+  function tupleEntry(i, expressions, freeCols, pNames) {
+    const expr = expressions[i];
+    if (freeCols.includes(i)) {
+      return `<span class="param">${pNames[freeCols.indexOf(i)]}</span>`;
+    }
+    const c = expr.constant;
+    const parts = [];
+    if (Math.abs(c) > 1e-10 || Object.keys(expr.freeCoeffs).length === 0) {
+      parts.push({ val: c, html: `<span class="const">${frac(c)}</span>`, isFirst: true });
+    }
+    freeCols.forEach((fc, pi) => {
+      const coeff = expr.freeCoeffs[fc] ?? 0;
+      if (Math.abs(coeff) < 1e-10) return;
+      const abs = Math.abs(coeff);
+      const pStr = abs === 1 ? pNames[pi] : `${frac(abs)}${pNames[pi]}`;
+      parts.push({ val: coeff, html: `<span class="param">${pStr}</span>`, isFirst: parts.length === 0 });
+    });
+    if (parts.length === 0) return '<span class="const">0</span>';
+    return parts.map((p, idx) => {
+      if (idx === 0) return (p.val < 0 ? '−' : '') + p.html;
+      return (p.val < 0 ? ' − ' : ' + ') + p.html;
+    }).join('');
+  }
+
+  const GRAAD = ['', 'enkelvoudig', 'tweevoudig', 'drievoudig', 'viervoudig', 'vijfvoudig'];
+
+  function renderSolution(mat, pivotCols) {
+    const res = extractSolution(mat, pivotCols);
+    const box = document.createElement('div');
+    box.className = 'solution-box';
+    if (res.type === 'none') box.classList.add('no-solution-box');
+
+    const r = pivotCols.length;
+    const title = document.createElement('h3');
+    if (res.type === 'none') {
+      title.textContent = 'Strijdig stelsel — geen oplossing';
+      title.style.color = '#f87171';
+    } else if (res.type === 'unique') {
+      title.textContent = `Bepaald stelsel — juist één oplossing  (rang = ${r})`;
+      title.style.color = '#22c55e';
+    } else {
+      const k = res.freeCols.length;
+      const graad = k <= 5 ? GRAAD[k] + ' onbepaald' : `${k}-voudig onbepaald`;
+      title.textContent = `${graad.charAt(0).toUpperCase() + graad.slice(1)} stelsel — oneindig veel oplossingen  (rang = ${r}, vrijheidsgraad${k > 1 ? 'en' : ''} = ${k})`;
+      title.style.color = '#a855f7';
+    }
+    box.appendChild(title);
+
+    if (res.type === 'none') {
+      const p = document.createElement('p');
+      p.className = 'no-solution';
+      p.innerHTML = 'Er verschijnt een <strong>valse vergelijking</strong> van de vorm 0 = c (c ≠ 0) in de rijcanonieke matrix. Het stelsel is tegenstrijdig.';
+      box.appendChild(p);
+
+    } else if (res.type === 'unique') {
+      const varList = Array.from({length: nCols}, (_, i) => varName(i));
+      const valList = res.sol.map(v => `<span class="const">${frac(v)}</span>`);
+      const eq = document.createElement('div');
+      eq.className = 'sol-eq';
+      eq.style.marginTop = '8px';
+      eq.innerHTML = `(<span class="vname">${varList.join(', ')}</span>) = (${valList.join(', ')})`;
+      box.appendChild(eq);
+
+    } else {
+      const k = res.freeCols.length;
+      const pNames = res.freeCols.map((_, i) => paramName(i));
+      const varList = Array.from({length: nCols}, (_, i) => varName(i));
+
+      const neven = document.createElement('div');
+      neven.style.cssText = 'font-size:0.82rem;color:#a855f7;margin-bottom:8px;';
+      neven.innerHTML =
+        `<strong>Nevenonbekende${k > 1 ? 'n' : ''}:</strong> `
+        + res.freeCols.map((fc, i) => `${varName(fc)} = ${pNames[i]}`).join(', ')
+        + ` &nbsp;(${pNames.join(', ')} ∈ ℝ)<br>`
+        + `<strong>Hoofdonbekende${nCols - k > 1 ? 'n' : ''}:</strong> `
+        + Array.from({length: nCols}, (_, i) => i).filter(i => !res.freeCols.includes(i))
+            .map(i => varName(i)).join(', ');
+      box.appendChild(neven);
+
+      const entries = Array.from({length: nCols}, (_, i) =>
+        tupleEntry(i, res.expressions, res.freeCols, pNames));
+      const eq = document.createElement('div');
+      eq.className = 'sol-eq';
+      eq.innerHTML =
+        `(<span class="vname">${varList.join(', ')}</span>) = (${entries.join(', ')})`
+        + ` &nbsp;met ${pNames.join(', ')} ∈ ℝ`;
+      box.appendChild(eq);
+    }
+    return box;
+  }
+
+  function renderStepCard(step, idx, isVisible, pivotCols) {
+    const div = document.createElement('div');
+    div.className = 'step-card' + (step.final ? ' done' : ' active');
+    div.id = `step-${idx}`;
+    if (!isVisible) div.style.display = 'none';
+
+    const header = document.createElement('div');
+    header.className = 'step-header';
+    const num = document.createElement('div');
+    num.className = 'step-num' + (step.final ? ' done-num' : '');
+    num.textContent = idx + 1;
+    header.appendChild(num);
+    const desc = document.createElement('div');
+    desc.className = 'step-desc';
+    desc.textContent = step.desc;
+    header.appendChild(desc);
+    div.appendChild(header);
+
+    const scroll = document.createElement('div');
+    scroll.className = 'step-matrix-scroll';
+    const matWrap = document.createElement('div');
+    matWrap.className = 'step-matrix';
+
+    const lb = document.createElement('div'); lb.className = 'bracket-l'; matWrap.appendChild(lb);
+
+    const grid = document.createElement('div');
+    grid.className = 'step-grid';
+    grid.style.gridTemplateColumns = `repeat(${nCols}, auto) 3px auto`;
+
+    const knownFreeCols = [];
+    for (let c = 0; c < nCols; c++) {
+      if (!pivotCols.includes(c)) knownFreeCols.push(c);
+    }
+
+    step.matrix.forEach((row, r) => {
+      row.forEach((val, c) => {
+        if (c === nCols) {
+          const sep = document.createElement('div');
+          sep.style.cssText = 'width:2px;background:#7dd3fc;border-radius:2px;margin:0 2px;';
+          grid.appendChild(sep);
+        }
+        const cell = document.createElement('div');
+        cell.className = 'step-cell';
+        if (r === step.pivotRow && c === step.pivotCol) cell.classList.add('pivot');
+        else if (step.swapRows.includes(r))              cell.classList.add('swap');
+        else if (step.changedRows.includes(r))           cell.classList.add('changed');
+        else if (step.final && c < nCols && knownFreeCols.includes(c)) cell.classList.add('free-col');
+        cell.textContent = frac(val);
+        grid.appendChild(cell);
+      });
+    });
+
+    matWrap.appendChild(grid);
+    const rb = document.createElement('div'); rb.className = 'bracket-r'; matWrap.appendChild(rb);
+    scroll.appendChild(matWrap);
+    div.appendChild(scroll);
+    return div;
+  }
+
+  function startSolve() {
+    const mat = readMatrix();
+    const { steps, matrix, pivotCols } = gaussJordan(mat);
+    allSteps = steps;
+    showingAll = false;
+    currentStep = 0;
+    const card = document.getElementById('steps-card');
+    card.style.display = 'block';
+    renderAllSteps(pivotCols);
+    showStep(0);
+    card.scrollIntoView({ behavior: 'smooth' });
+  }
+
+  function renderAllSteps(pivotCols) {
+    const container = document.getElementById('steps-container');
+    container.innerHTML = '';
+    allSteps.forEach((step, idx) => {
+      container.appendChild(renderStepCard(step, idx, false, pivotCols));
+    });
+    const lastStep = allSteps[allSteps.length - 1];
+    const solEl = renderSolution(lastStep.matrix, pivotCols);
+    solEl.id = 'solution-box';
+    solEl.style.display = 'none';
+    document.getElementById(`step-${allSteps.length - 1}`).appendChild(solEl);
+  }
+
+  function showStep(idx) {
+    if (idx < 0 || idx >= allSteps.length) return;
+    if (showingAll) {
+      const mat = readMatrix();
+      const { steps, matrix, pivotCols } = gaussJordan(mat);
+      allSteps = steps;
+      renderAllSteps(pivotCols);
+      showingAll = false;
+    }
+    allSteps.forEach((_, i) => {
+      const el = document.getElementById(`step-${i}`);
+      if (el) el.style.display = 'none';
+    });
+    currentStep = idx;
+    const el = document.getElementById(`step-${idx}`);
+    if (el) el.style.display = '';
+    const solBox = document.getElementById('solution-box');
+    if (idx === allSteps.length - 1 && solBox) solBox.style.display = '';
+    document.getElementById('step-indicator').textContent = `${idx + 1} / ${allSteps.length}`;
+    document.getElementById('btn-prev').disabled = idx === 0;
+    document.getElementById('btn-next').disabled = idx === allSteps.length - 1;
+  }
+
+  function showAll() {
+    showingAll = true;
+    allSteps.forEach((_, i) => {
+      const el = document.getElementById(`step-${i}`);
+      if (el) el.style.display = '';
+    });
+    const solBox = document.getElementById('solution-box');
+    if (solBox) solBox.style.display = '';
+    document.getElementById('step-indicator').textContent = `Alle ${allSteps.length} stappen`;
+    document.getElementById('btn-prev').disabled = true;
+    document.getElementById('btn-next').disabled = true;
+  }
+
+  // ---- Auth ----
+  function onReady(user) {
+    document.getElementById('userBadge').classList.remove('hidden');
+    document.getElementById('userDisplay').textContent = '👤 ' + (user.displayName || user.email);
+  }
+
+  document.addEventListener('DOMContentLoaded', () => {
+    EduPlatform.init('gauss-jordan', { onReady });
+    rebuild();
+  });
+</script>
+</body>
+</html>

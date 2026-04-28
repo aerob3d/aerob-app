@@ -1,0 +1,206 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AeroB Edu — Leerplatform Vlaams Middelbaar Onderwijs</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+<script src="/edu/edu.js"></script>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --blue:#1f3b88;--blue-light:#2a4fad;--blue-dark:#142960;
+  --orange:#ffa500;--orange-light:#ffb733;
+  --bg:#f0f2f7;--card:#fff;--border:#d0d7e3;
+  --text:#1a2236;--sub:#5a6880;
+  --radius:10px;--shadow:0 2px 12px rgba(31,59,136,.08);
+}
+body{font-family:"Segoe UI","Inter",system-ui,sans-serif;background:var(--bg);color:var(--text);min-height:100vh}
+
+/* ── Header ─────────────────────────────────────────── */
+.edu-header{background:var(--blue);color:#fff;padding:14px 28px;display:flex;align-items:center;gap:14px;box-shadow:0 2px 8px rgba(0,0,0,.15)}
+.edu-header h1{font-size:20px;font-weight:700;letter-spacing:.5px;white-space:nowrap}
+.edu-header h1 .orange{color:var(--orange)}
+.edu-header h1 .tag{font-size:12px;font-weight:600;background:rgba(255,255,255,.15);padding:2px 9px;border-radius:10px;margin-left:8px;letter-spacing:.3px;vertical-align:middle}
+.edu-header-spacer{flex:1}
+.edu-user-badge{display:flex;align-items:center;gap:10px;background:rgba(255,255,255,.12);padding:6px 14px;border-radius:20px;flex-shrink:0}
+.edu-user-badge span{font-size:13px;font-weight:600}
+.edu-user-badge button{background:rgba(255,255,255,.18);border:1px solid rgba(255,255,255,.3);color:#fff;padding:4px 12px;border-radius:12px;font-size:12px;cursor:pointer;transition:all .2s}
+.edu-user-badge button:hover{background:rgba(255,255,255,.3)}
+
+/* ── Layout ─────────────────────────────────────────── */
+.container{max-width:1100px;margin:0 auto;padding:44px 24px}
+
+/* ── Hero ───────────────────────────────────────────── */
+.portal-hero{text-align:center;margin-bottom:52px}
+.portal-hero h2{font-size:28px;font-weight:800;color:var(--blue);margin-bottom:10px}
+.portal-hero h2 .orange{color:var(--orange)}
+.portal-hero p{font-size:15px;color:var(--sub);max-width:540px;margin:0 auto;line-height:1.7}
+.portal-greeting{font-size:14px;color:var(--sub);margin-bottom:6px;font-weight:600}
+
+/* ── Subject section ────────────────────────────────── */
+.subject-section{margin-bottom:44px}
+.subject-header{display:flex;align-items:center;gap:14px;margin-bottom:16px}
+.subject-icon{font-size:22px;width:46px;height:46px;background:var(--card);border:1px solid var(--border);border-radius:12px;display:flex;align-items:center;justify-content:center;box-shadow:var(--shadow);flex-shrink:0}
+.subject-header h3{font-size:17px;font-weight:800;color:var(--blue)}
+.subject-header p{font-size:13px;color:var(--sub);margin-top:2px}
+.subject-divider{border:none;border-top:1px solid var(--border);margin:0 0 20px}
+
+/* ── Tool cards ─────────────────────────────────────── */
+.tools-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:20px}
+.tool-card{background:var(--card);border-radius:14px;border:1px solid var(--border);box-shadow:var(--shadow);padding:24px;transition:all .2s;text-decoration:none;color:inherit;display:flex;flex-direction:column}
+.tool-card:not(.coming-soon){cursor:pointer}
+.tool-card:hover:not(.coming-soon){border-color:var(--blue);box-shadow:0 6px 24px rgba(31,59,136,.14);transform:translateY(-2px)}
+.tool-card.coming-soon{opacity:.5;cursor:default}
+.tool-card-icon{font-size:30px;margin-bottom:12px}
+.tool-card h4{font-size:16px;font-weight:800;color:var(--blue);margin-bottom:6px}
+.tool-card p{font-size:13px;color:var(--sub);line-height:1.6;flex:1;margin-bottom:16px}
+.tool-card-cta{display:inline-flex;align-items:center;gap:6px;font-size:13px;font-weight:700;color:var(--blue);border:1.5px solid var(--border);border-radius:8px;padding:7px 14px;width:fit-content;transition:all .2s}
+.tool-card:hover:not(.coming-soon) .tool-card-cta{background:var(--blue);color:#fff;border-color:var(--blue)}
+.tool-card.featured .tool-card-cta{background:var(--orange);color:var(--blue-dark);border-color:var(--orange)}
+.tool-card.featured:hover .tool-card-cta{background:var(--orange-light);border-color:var(--orange-light)}
+.tool-badge{display:inline-block;font-size:10px;background:#fef9c3;color:#854d0e;border-radius:10px;padding:2px 8px;font-weight:700;margin-left:6px;vertical-align:middle;text-transform:uppercase;letter-spacing:.3px}
+
+/* ── Coming soon subjects row ───────────────────────── */
+.coming-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:14px}
+.coming-card{background:var(--card);border-radius:12px;border:1px solid var(--border);padding:18px 20px;display:flex;align-items:center;gap:14px;opacity:.48}
+.coming-card-icon{font-size:24px;flex-shrink:0}
+.coming-card h4{font-size:14px;font-weight:700;color:var(--blue);margin-bottom:3px}
+.coming-card p{font-size:12px;color:var(--sub);line-height:1.4}
+
+/* ── Info bar ───────────────────────────────────────── */
+.info-bar{background:var(--card);border-radius:var(--radius);border:1px solid var(--border);padding:16px 22px;display:flex;align-items:center;gap:18px;flex-wrap:wrap;margin-top:8px}
+.info-bar-item{display:flex;align-items:center;gap:8px;font-size:13px;color:var(--sub)}
+.info-bar-item strong{color:var(--text)}
+.info-bar-sep{color:var(--border);font-size:18px;flex-shrink:0}
+
+/* ── Footer ─────────────────────────────────────────── */
+.footer{text-align:center;padding:30px 24px;font-size:12px;color:var(--sub)}
+.footer a{color:var(--blue)}
+
+.hidden{display:none!important}
+
+@media(max-width:600px){
+  .container{padding:28px 16px}
+  .portal-hero h2{font-size:22px}
+  .info-bar-sep{display:none}
+  .info-bar{gap:12px}
+}
+</style>
+</head>
+<body>
+
+<!-- ── Header ──────────────────────────────────────── -->
+<div class="edu-header">
+  <img src="/Logo.png" alt="AeroB" style="height:34px;width:auto;filter:brightness(0) invert(1);flex-shrink:0">
+  <h1>Aero<span class="orange">B</span><span class="tag">Edu</span></h1>
+  <div class="edu-header-spacer"></div>
+  <div class="edu-user-badge hidden" id="userBadge">
+    <span id="userDisplay">—</span>
+    <button onclick="eduDoLogout()">Afmelden</button>
+  </div>
+</div>
+
+<!-- ── Main ────────────────────────────────────────── -->
+<div class="container">
+
+  <!-- Hero -->
+  <div class="portal-hero">
+    <p class="portal-greeting hidden" id="greeting"></p>
+    <h2>Aero<span class="orange">B</span> Edu</h2>
+    <p>Interactief leerplatform voor het Vlaams middelbaar onderwijs. Leer wiskunde, fysica en meer — stap voor stap, visueel en helder.</p>
+  </div>
+
+  <!-- ── Wiskunde ─────────────────────────────────── -->
+  <div class="subject-section">
+    <div class="subject-header">
+      <div class="subject-icon">📐</div>
+      <div>
+        <h3>Wiskunde</h3>
+        <p>Stelsels, matrices, algebra en analyse</p>
+      </div>
+    </div>
+    <hr class="subject-divider">
+    <div class="tools-grid">
+
+      <a class="tool-card featured" href="/edu/wiskunde/gauss-jordan.html">
+        <div class="tool-card-icon">🔢</div>
+        <h4>Gauss-Jordan eliminatie</h4>
+        <p>Los lineaire stelsels op via de methode van Gauss-Jordan. Visualiseer elke stap: spil, schaling, rijoptelling en rijcanonieke vorm. Ondersteuning voor vierkante en niet-vierkante matrices.</p>
+        <div class="tool-card-cta">Starten →</div>
+      </a>
+
+      <div class="tool-card coming-soon">
+        <div class="tool-card-icon">✏️</div>
+        <h4>Vergelijkingen <span class="tool-badge">Binnenkort</span></h4>
+        <p>Eerstegraads en tweedegraadsvergelijkingen, discriminant en oplossingsformule.</p>
+        <div class="tool-card-cta">Binnenkort</div>
+      </div>
+
+      <div class="tool-card coming-soon">
+        <div class="tool-card-icon">∫</div>
+        <h4>Integraalrekening <span class="tool-badge">Binnenkort</span></h4>
+        <p>Primitieve functies, bepaalde integralen en oppervlakteberekening stap voor stap.</p>
+        <div class="tool-card-cta">Binnenkort</div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- ── Andere vakken ─────────────────────────────── -->
+  <div class="subject-section">
+    <div class="subject-header">
+      <div class="subject-icon" style="opacity:.45">🚀</div>
+      <div>
+        <h3 style="color:var(--sub)">Meer vakken — binnenkort</h3>
+        <p>Andere vakken worden stap voor stap toegevoegd</p>
+      </div>
+    </div>
+    <hr class="subject-divider">
+    <div class="coming-grid">
+      <div class="coming-card">
+        <div class="coming-card-icon">⚛️</div>
+        <div><h4>Fysica</h4><p>Mechanica, elektriciteit, golven</p></div>
+      </div>
+      <div class="coming-card">
+        <div class="coming-card-icon">🧪</div>
+        <div><h4>Chemie</h4><p>Stoffen, reacties, periodiek systeem</p></div>
+      </div>
+      <div class="coming-card">
+        <div class="coming-card-icon">📊</div>
+        <div><h4>Statistiek</h4><p>Kansen, verdelingen, data-analyse</p></div>
+      </div>
+      <div class="coming-card">
+        <div class="coming-card-icon">🌍</div>
+        <div><h4>Aardrijkskunde</h4><p>Kaarten, klimaat, geografie</p></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="info-bar">
+    <div class="info-bar-item">🇧🇪 <span><strong>Vlaams leerplan</strong> — terminologie conform de eindtermen</span></div>
+    <div class="info-bar-sep">·</div>
+    <div class="info-bar-item">🔒 <span><strong>Beveiligde opslag</strong> — jouw gegevens zijn privé</span></div>
+    <div class="info-bar-sep">·</div>
+    <div class="info-bar-item">🚀 <span><strong>Meer tools</strong> worden toegevoegd</span></div>
+  </div>
+
+</div>
+
+<div class="footer">AeroB Edu · <a href="https://aerob.be">aerob.be</a></div>
+
+<script>
+function showPortal(user) {
+  document.getElementById('userBadge').classList.remove('hidden');
+  document.getElementById('userDisplay').textContent = '👤 ' + (user.displayName || user.email);
+  const greet = document.getElementById('greeting');
+  greet.textContent = 'Welkom terug, ' + (user.displayName || user.email.split('@')[0]) + '!';
+  greet.classList.remove('hidden');
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+  EduPlatform.init('portal', { onReady: showPortal });
+});
+</script>
+</body>
+</html>
