@@ -1,12 +1,10 @@
 {
   "version": 2,
   "rewrites": [
-    { "source": "/estimation",                       "destination": "/estimation.html"                       },
-    { "source": "/estimation-analysis",              "destination": "/estimation-analysis.html"              },
-    { "source": "/raceview",                         "destination": "/raceview.html"                         },
-    { "source": "/edu",                              "destination": "/edu/index.html"                        },
-    { "source": "/edu/wiskunde/gauss-jordan",        "destination": "/edu/wiskunde/gauss-jordan.html"        },
-    { "source": "/((?!api/|edu/).*)",                "destination": "/index.html"                            }
+    { "source": "/estimation",          "destination": "/estimation.html"          },
+    { "source": "/estimation-analysis", "destination": "/estimation-analysis.html" },
+    { "source": "/raceview",            "destination": "/raceview.html"            },
+    { "source": "/((?!api/).*)",        "destination": "/index.html"               }
   ],
   "headers": [
     {
