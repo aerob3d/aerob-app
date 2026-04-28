@@ -1,0 +1,421 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Settings — AeroB</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+<script src="/platform.js"></script>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --blue:#1f3b88;--blue-light:#2a4fad;--blue-dark:#142960;
+  --orange:#ffa500;--orange-light:#ffb733;
+  --bg:#f0f2f7;--card:#fff;--border:#d0d7e3;
+  --text:#1a2236;--sub:#5a6880;
+  --radius:10px;--shadow:0 2px 12px rgba(31,59,136,.08);
+}
+body{font-family:"Segoe UI","Inter",system-ui,sans-serif;background:var(--bg);color:var(--text);min-height:100vh}
+
+.header{background:var(--blue);color:#fff;padding:16px 32px;display:flex;align-items:center;gap:16px;box-shadow:0 2px 8px rgba(0,0,0,.15)}
+.header h1{font-size:22px;font-weight:700;letter-spacing:.5px}
+.header h1 span{color:var(--orange)}
+.header-spacer{flex:1}
+.user-badge{display:flex;align-items:center;gap:10px;background:rgba(255,255,255,.12);padding:6px 14px;border-radius:20px;flex-shrink:0}
+.user-badge span{font-size:13px;font-weight:600}
+.user-badge button{background:rgba(255,255,255,.18);border:1px solid rgba(255,255,255,.3);color:#fff;padding:4px 12px;border-radius:12px;font-size:12px;cursor:pointer;transition:all .2s}
+.user-badge button:hover{background:rgba(255,255,255,.3)}
+
+.container{max-width:820px;margin:0 auto;padding:32px 24px}
+.page-title{font-size:24px;font-weight:800;color:var(--blue);margin-bottom:6px}
+.page-sub{font-size:14px;color:var(--sub);margin-bottom:32px}
+
+.section{background:var(--card);border-radius:var(--radius);border:1px solid var(--border);box-shadow:var(--shadow);margin-bottom:24px;overflow:hidden}
+.section-header{padding:18px 24px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:12px}
+.section-icon{font-size:22px}
+.section-title{font-size:16px;font-weight:700;color:var(--blue)}
+.section-sub{font-size:12px;color:var(--sub);margin-top:2px}
+.section-body{padding:24px}
+
+/* Plan status card */
+.plan-card{display:flex;align-items:center;justify-content:space-between;background:#f7f9fc;border:1px solid var(--border);border-radius:8px;padding:16px 20px;margin-bottom:20px}
+.plan-badge{display:inline-flex;align-items:center;gap:6px;background:var(--blue);color:#fff;padding:4px 12px;border-radius:20px;font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.5px}
+.plan-badge.pro{background:var(--orange);color:var(--blue-dark)}
+.plan-detail{font-size:13px;color:var(--sub);margin-top:4px}
+
+/* Options grid */
+.options-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:24px}
+@media(max-width:580px){.options-grid{grid-template-columns:1fr}}
+.option-card{border:2px solid var(--border);border-radius:10px;padding:20px;transition:border-color .2s}
+.option-card.active{border-color:var(--orange);background:#fffbf0}
+.option-card h3{font-size:14px;font-weight:700;color:var(--blue);margin-bottom:6px;display:flex;align-items:center;gap:8px}
+.option-card p{font-size:12px;color:var(--sub);line-height:1.55;margin-bottom:14px}
+
+/* Buttons */
+.btn{display:inline-flex;align-items:center;gap:8px;padding:10px 22px;border:none;border-radius:6px;font-size:14px;font-weight:600;cursor:pointer;transition:all .2s}
+.btn-primary{background:var(--blue);color:#fff}
+.btn-primary:hover:not(:disabled){background:var(--blue-light)}
+.btn-primary:disabled{opacity:.45;cursor:not-allowed}
+.btn-orange{background:var(--orange);color:var(--blue-dark);font-weight:700}
+.btn-orange:hover{background:var(--orange-light)}
+.btn-danger{background:#fee2e2;color:#991b1b;border:1px solid #fecaca;font-size:13px;padding:7px 16px}
+.btn-danger:hover{background:#fecaca}
+.btn-sm{padding:7px 16px;font-size:13px}
+
+/* Key input */
+.key-input-wrap{display:flex;gap:10px;align-items:stretch}
+.key-input-wrap input{flex:1;padding:10px 14px;border:1px solid var(--border);border-radius:6px;font-size:14px;font-family:monospace;color:var(--text)}
+.key-input-wrap input:focus{outline:2px solid var(--blue);border-color:transparent}
+
+/* Status pill */
+.status-pill{display:inline-flex;align-items:center;gap:6px;padding:4px 12px;border-radius:20px;font-size:12px;font-weight:600}
+.status-pill.connected{background:#dcfce7;color:#166534}
+.status-pill.none{background:#f1f5f9;color:#64748b}
+
+/* Alert */
+.alert{padding:12px 16px;border-radius:6px;font-size:13px;margin-top:12px;display:none}
+.alert.show{display:block}
+.alert.success{background:#dcfce7;color:#166534;border:1px solid #bbf7d0}
+.alert.error{background:#fee2e2;color:#991b1b;border:1px solid #fecaca}
+.alert.info{background:#e0f2fe;color:#075985;border:1px solid #bae6fd}
+
+/* Step guide */
+.guide-steps{counter-reset:step;list-style:none;display:flex;flex-direction:column;gap:0}
+.guide-steps li{display:flex;gap:16px;padding:16px 0;border-bottom:1px solid #f0f2f7;position:relative;counter-increment:step}
+.guide-steps li:last-child{border-bottom:none}
+.step-num{flex-shrink:0;width:28px;height:28px;border-radius:50%;background:var(--blue);color:#fff;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;margin-top:1px}
+.step-body h4{font-size:14px;font-weight:600;color:var(--text);margin-bottom:4px}
+.step-body p{font-size:13px;color:var(--sub);line-height:1.55}
+.step-body code{background:#f0f2f7;padding:2px 7px;border-radius:4px;font-size:12px;font-family:monospace;color:var(--blue)}
+.step-body a{color:var(--blue);font-weight:600}
+.step-tip{margin-top:8px;background:#fffbf0;border:1px solid #fde68a;border-radius:6px;padding:8px 12px;font-size:12px;color:#92400e;line-height:1.5}
+
+/* Restriction note */
+.restriction-box{background:#f0f4ff;border:1px solid #c7d4f5;border-radius:8px;padding:14px 16px;margin-top:16px;font-size:13px;color:#3b4d8a;line-height:1.6}
+.restriction-box strong{display:block;margin-bottom:4px;font-size:14px}
+
+/* Divider */
+.or-divider{text-align:center;position:relative;margin:24px 0}
+.or-divider::before{content:'';position:absolute;top:50%;left:0;right:0;height:1px;background:var(--border)}
+.or-divider span{position:relative;background:#fff;padding:0 14px;font-size:12px;color:var(--sub);font-weight:600;letter-spacing:.5px;text-transform:uppercase}
+
+.pricing-row{display:flex;align-items:center;gap:16px;padding:16px;background:#f7f9fc;border-radius:8px;border:1px solid var(--border)}
+.pricing-amount{font-size:28px;font-weight:800;color:var(--blue)}
+.pricing-amount sup{font-size:16px;vertical-align:top;margin-top:4px}
+.pricing-amount sub{font-size:13px;font-weight:400;color:var(--sub)}
+.pricing-features{flex:1}
+.pricing-features ul{list-style:none;font-size:13px;color:var(--sub);display:flex;flex-direction:column;gap:4px}
+.pricing-features ul li::before{content:'✓  ';color:#16a34a;font-weight:700}
+</style>
+</head>
+<body>
+
+<div class="header">
+  <h1>Aero<span>B</span></h1>
+  <div class="header-spacer"></div>
+  <div class="user-badge hidden" id="userBadge">
+    <span id="userDisplay"></span>
+    <button onclick="doLogout()">Sign out</button>
+  </div>
+</div>
+
+<div class="container">
+  <div class="page-title">Settings</div>
+  <div class="page-sub">Manage your account, Street View access, and subscription.</div>
+
+  <!-- ── Plan Status ──────────────────────────────────────────────── -->
+  <div class="section">
+    <div class="section-header">
+      <div class="section-icon">💳</div>
+      <div>
+        <div class="section-title">Subscription Plan</div>
+        <div class="section-sub">Your current plan and billing options</div>
+      </div>
+    </div>
+    <div class="section-body">
+      <div class="plan-card">
+        <div>
+          <span class="plan-badge" id="planBadge">Free</span>
+          <div class="plan-detail" id="planDetail">3 analyses per month included</div>
+        </div>
+        <div id="planActions"></div>
+      </div>
+      <div id="planAlert" class="alert"></div>
+    </div>
+  </div>
+
+  <!-- ── Street View Access ───────────────────────────────────────── -->
+  <div class="section" id="streetview">
+    <div class="section-header">
+      <div class="section-icon">🛰️</div>
+      <div>
+        <div class="section-title">RaceView — Street View Access</div>
+        <div class="section-sub">RaceView loads Google Street View images, which have a per-request cost. Choose how to cover it.</div>
+      </div>
+    </div>
+    <div class="section-body">
+
+      <!-- Current key status -->
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px">
+        <div>
+          <div style="font-size:13px;font-weight:600;color:var(--sub);margin-bottom:4px">Current status</div>
+          <span class="status-pill none" id="svStatusPill">No key saved</span>
+        </div>
+        <button class="btn btn-danger hidden" id="svDeleteBtn" onclick="deleteKey()">Remove key</button>
+      </div>
+
+      <div class="options-grid">
+        <!-- Option A: BYOK -->
+        <div class="option-card" id="byokCard">
+          <h3>🔑 Free — Your Own API Key</h3>
+          <p>Create a Google Cloud API key tied to your own account. Google gives you <strong>$200 free credit/month</strong> — plenty for personal use.</p>
+          <button class="btn btn-primary btn-sm" onclick="showByokForm()">Set Up My Key</button>
+        </div>
+        <!-- Option B: Pro -->
+        <div class="option-card" id="proCard">
+          <h3>⚡ Pro Plan — Included</h3>
+          <p>Upgrade to Pro and Street View is included. No key setup needed. Also unlocks unlimited analyses.</p>
+          <button class="btn btn-orange btn-sm" id="upgradeBtn" onclick="doUpgrade()">Upgrade to Pro</button>
+        </div>
+      </div>
+
+      <!-- BYOK form (hidden by default) -->
+      <div id="byokForm" style="display:none">
+        <div class="or-divider"><span>Enter Your API Key</span></div>
+        <div style="margin-bottom:10px">
+          <div class="key-input-wrap">
+            <input type="text" id="svKeyInput" placeholder="AIzaSy…" autocomplete="off" spellcheck="false">
+            <button class="btn btn-primary" onclick="saveKey()">Save Key</button>
+          </div>
+          <div style="font-size:12px;color:var(--sub);margin-top:6px">Your key is stored securely and only used server-side — never exposed to other users.</div>
+        </div>
+        <div id="svKeyAlert" class="alert"></div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- ── Google Console Guide ─────────────────────────────────────── -->
+  <div class="section" id="guide">
+    <div class="section-header">
+      <div class="section-icon">📖</div>
+      <div>
+        <div class="section-title">How to Get a Free Google Street View API Key</div>
+        <div class="section-sub">Step-by-step guide — takes about 5 minutes</div>
+      </div>
+    </div>
+    <div class="section-body">
+
+      <div style="background:#e0f2fe;border:1px solid #bae6fd;border-radius:8px;padding:12px 16px;margin-bottom:20px;font-size:13px;color:#075985;line-height:1.55">
+        <strong>Google gives every account $200 free credit per month.</strong>
+        Street View Static images cost $7 per 1,000 requests. That means you can load
+        ~28,500 Street View images per month before any charge — far more than any
+        personal training use.
+      </div>
+
+      <ol class="guide-steps">
+        <li>
+          <div class="step-num">1</div>
+          <div class="step-body">
+            <h4>Go to Google Cloud Console</h4>
+            <p>Open <a href="https://console.cloud.google.com" target="_blank" rel="noopener">console.cloud.google.com</a> and sign in with your Google account. A free Google account is sufficient — no credit card needed to start.</p>
+          </div>
+        </li>
+        <li>
+          <div class="step-num">2</div>
+          <div class="step-body">
+            <h4>Create a new project</h4>
+            <p>Click the project selector at the top → <strong>New Project</strong>. Give it a name like <code>AeroB RaceView</code>. Click <strong>Create</strong> and wait a few seconds for it to be provisioned.</p>
+          </div>
+        </li>
+        <li>
+          <div class="step-num">3</div>
+          <div class="step-body">
+            <h4>Enable billing (required for APIs — free tier applies)</h4>
+            <p>Go to <strong>Billing</strong> in the left menu and link a credit card. Google will not charge you within the $200/month free tier. You can set a <strong>billing budget alert</strong> at $1 to get an email if you ever approach the limit.</p>
+            <div class="step-tip">💡 To set a budget: Billing → Budgets &amp; alerts → Create Budget → set amount to $1 and enable email alerts. You'll be notified before any real cost occurs.</div>
+          </div>
+        </li>
+        <li>
+          <div class="step-num">4</div>
+          <div class="step-body">
+            <h4>Enable the Street View Static API</h4>
+            <p>Go to <strong>APIs &amp; Services → Library</strong>. Search for <code>Street View Static API</code>. Click on it, then click <strong>Enable</strong>.</p>
+          </div>
+        </li>
+        <li>
+          <div class="step-num">5</div>
+          <div class="step-body">
+            <h4>Create an API key</h4>
+            <p>Go to <strong>APIs &amp; Services → Credentials</strong>. Click <strong>+ Create Credentials → API key</strong>. Google will generate a key that starts with <code>AIzaSy…</code>. Copy it.</p>
+          </div>
+        </li>
+        <li>
+          <div class="step-num">6</div>
+          <div class="step-body">
+            <h4>Restrict the key (recommended)</h4>
+            <p>Click <strong>Edit API key</strong>. Under <strong>API restrictions</strong>, choose <strong>Restrict key</strong> and select only <code>Street View Static API</code>. This limits the key's scope so it cannot be misused if leaked.</p>
+            <div class="restriction-box">
+              <strong>Optional: HTTP referrer restriction</strong>
+              Under <strong>Application restrictions</strong>, choose <strong>Websites</strong> and add
+              <code>https://app.aerob.be/*</code>. This means the key only works on AeroB —
+              however, since AeroB uses it server-side, leave this blank unless you
+              know what you're doing.
+            </div>
+          </div>
+        </li>
+        <li>
+          <div class="step-num">7</div>
+          <div class="step-body">
+            <h4>Paste your key in AeroB Settings</h4>
+            <p>Scroll up to the <strong>Street View Access</strong> section, click <strong>Set Up My Key</strong>, paste your key and click <strong>Save Key</strong>. RaceView will immediately use your key for all Street View images.</p>
+          </div>
+        </li>
+      </ol>
+
+    </div>
+  </div>
+
+</div><!-- /container -->
+
+<script>
+// ── State ─────────────────────────────────────────────────────────────────────
+let _currentUser = null;
+
+function onSignedIn(user) {
+  _currentUser = user;
+  const badge = document.getElementById('userBadge');
+  if (badge) badge.classList.remove('hidden');
+  document.getElementById('userDisplay').textContent = user.displayName || user.email.split('@')[0];
+  loadPlanStatus();
+  loadSvKeyStatus();
+
+  // Scroll to #streetview if deep-linked
+  if (window.location.hash === '#streetview') {
+    setTimeout(() => document.getElementById('streetview').scrollIntoView({ behavior: 'smooth' }), 300);
+  }
+}
+
+// ── Plan status ───────────────────────────────────────────────────────────────
+async function loadPlanStatus() {
+  const plan = await Plans.getUserPlan();
+  const badge  = document.getElementById('planBadge');
+  const detail = document.getElementById('planDetail');
+  const actions = document.getElementById('planActions');
+
+  if (plan.plan === 'pro') {
+    badge.textContent = 'Pro';
+    badge.classList.add('pro');
+    const proCard = document.getElementById('proCard');
+    proCard.classList.add('active');
+    document.getElementById('upgradeBtn').textContent = 'Manage Billing';
+    document.getElementById('upgradeBtn').onclick = doPortal;
+
+    if (plan.isInternal) {
+      detail.textContent = 'Internal access — unlimited everything';
+    } else if (plan.periodEnd) {
+      const d = new Date(plan.periodEnd).toLocaleDateString('en-GB', { day:'numeric', month:'short', year:'numeric' });
+      detail.textContent = plan.cancelAtEnd
+        ? `Cancels on ${d} — Street View included until then`
+        : `Renews on ${d} — Street View included`;
+    }
+    actions.innerHTML = `<button class="btn btn-sm" style="background:#f0f2f7;color:var(--text);border:1px solid var(--border)" onclick="doPortal()">Manage billing</button>`;
+  } else {
+    badge.textContent = 'Free';
+    detail.textContent = '3 analyses per month · Street View requires a key or Pro';
+    actions.innerHTML = `<button class="btn btn-orange btn-sm" onclick="doUpgrade()">Upgrade to Pro</button>`;
+  }
+}
+
+// ── Street View key status ─────────────────────────────────────────────────────
+async function loadSvKeyStatus() {
+  const has = await StreetViewAccess.hasKey();
+  const pill = document.getElementById('svStatusPill');
+  const delBtn = document.getElementById('svDeleteBtn');
+  const byokCard = document.getElementById('byokCard');
+  if (has) {
+    pill.textContent = 'API key saved';
+    pill.className = 'status-pill connected';
+    delBtn.classList.remove('hidden');
+    byokCard.classList.add('active');
+  } else {
+    pill.textContent = 'No key saved';
+    pill.className = 'status-pill none';
+    delBtn.classList.add('hidden');
+    byokCard.classList.remove('active');
+  }
+}
+
+// ── BYOK form ─────────────────────────────────────────────────────────────────
+function showByokForm() {
+  document.getElementById('byokForm').style.display = 'block';
+  document.getElementById('svKeyInput').focus();
+}
+
+async function saveKey() {
+  const input = document.getElementById('svKeyInput');
+  const alert = document.getElementById('svKeyAlert');
+  const key = input.value.trim();
+  if (!key.startsWith('AIza') || key.length < 30) {
+    showAlert(alert, 'error', 'That doesn\'t look like a valid Google API key. It should start with AIzaSy…');
+    return;
+  }
+  try {
+    await StreetViewAccess.saveKey(key);
+    input.value = '';
+    document.getElementById('byokForm').style.display = 'none';
+    showAlert(document.getElementById('svKeyAlert'), 'success', 'Key saved! RaceView will now use your Google API key.');
+    loadSvKeyStatus();
+  } catch(e) {
+    showAlert(alert, 'error', 'Failed to save key: ' + e.message);
+  }
+}
+
+async function deleteKey() {
+  if (!confirm('Remove your saved API key? You will need to re-enter it or upgrade to Pro to use RaceView.')) return;
+  try {
+    await StreetViewAccess.deleteKey();
+    loadSvKeyStatus();
+  } catch(e) {
+    alert('Failed to remove key: ' + e.message);
+  }
+}
+
+// ── Stripe actions ────────────────────────────────────────────────────────────
+async function doUpgrade() {
+  const btn = document.getElementById('upgradeBtn');
+  btn.disabled = true;
+  btn.textContent = 'Redirecting…';
+  try {
+    const url = await Plans.startCheckout();
+    window.location.href = url;
+  } catch(e) {
+    showAlert(document.getElementById('planAlert'), 'error', 'Could not start checkout: ' + e.message);
+    btn.disabled = false;
+    btn.textContent = 'Upgrade to Pro';
+  }
+}
+
+async function doPortal() {
+  try {
+    const url = await Plans.openPortal();
+    window.location.href = url;
+  } catch(e) {
+    showAlert(document.getElementById('planAlert'), 'error', 'Could not open billing portal: ' + e.message);
+  }
+}
+
+// ── Helpers ───────────────────────────────────────────────────────────────────
+function showAlert(el, type, msg) {
+  el.className = `alert ${type} show`;
+  el.textContent = msg;
+  setTimeout(() => el.classList.remove('show'), 6000);
+}
+
+// ── Init ──────────────────────────────────────────────────────────────────────
+document.addEventListener('DOMContentLoaded', () => {
+  AeroBPlatform.init('settings', { onReady: onSignedIn });
+});
+</script>
+</body>
+</html>

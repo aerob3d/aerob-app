@@ -293,6 +293,45 @@ const Plans = (() => {
   return { getUserPlan, getMonthlyAnalysisCount, canRunAnalysis, startCheckout, openPortal, FREE_MONTHLY_LIMIT };
 })();
 
+// ── StreetViewAccess module ───────────────────────────────────────────────────
+const StreetViewAccess = (() => {
+  async function saveKey(key) {
+    const { data: { user } } = await _sb.auth.getUser();
+    if (!user) throw new Error('Not logged in');
+    const { error } = await _sb.from('user_google_keys').upsert(
+      { user_id: user.id, streetview_key: key.trim(), updated_at: new Date().toISOString() },
+      { onConflict: 'user_id' }
+    );
+    if (error) throw new Error(error.message);
+  }
+
+  async function deleteKey() {
+    const { data: { user } } = await _sb.auth.getUser();
+    if (!user) throw new Error('Not logged in');
+    const { error } = await _sb.from('user_google_keys').delete().eq('user_id', user.id);
+    if (error) throw new Error(error.message);
+  }
+
+  async function hasKey() {
+    const { data: { user } } = await _sb.auth.getUser();
+    if (!user) return false;
+    const { data, error } = await _sb
+      .from('user_google_keys')
+      .select('user_id')
+      .eq('user_id', user.id)
+      .maybeSingle();
+    return !error && !!data;
+  }
+
+  async function getAuthHeaders() {
+    const { data: { session } } = await _sb.auth.getSession();
+    if (!session) return {};
+    return { 'Authorization': `Bearer ${session.access_token}` };
+  }
+
+  return { saveKey, deleteKey, hasKey, getAuthHeaders };
+})();
+
 // ── uploadFitFile ─────────────────────────────────────────────────────────────
 async function uploadFitFile(userId, file) {
   const MAX_BYTES = 25 * 1024 * 1024;
@@ -314,6 +353,7 @@ const AeroBPlatform = (() => {
     { id: 'portal',     label: '⌂ Dashboard',      path: '/' },
     { id: 'estimation', label: '📐 CdA Estimator',  path: '/estimation' },
     { id: 'raceview',   label: '🏔️ RaceView',        path: '/raceview' },
+    { id: 'settings',   label: '⚙️ Settings',         path: '/settings' },
   ];
 
   let _currentUser = null;

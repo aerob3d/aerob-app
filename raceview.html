@@ -1367,7 +1367,14 @@ async function fetchStreetView(idx) {
       fov: String(state.fov),
       size: '800x450',
     });
-    const resp = await fetch(`${SV_BASE}?${params}`);
+    const authHeaders = await StreetViewAccess.getAuthHeaders();
+    const resp = await fetch(`${SV_BASE}?${params}`, { headers: authHeaders });
+
+    if (resp.status === 402) {
+      showSvAccessModal();
+      loadingSet.delete(idx);
+      return null;
+    }
 
     if (!resp.ok) {
       const body = await resp.text().catch(() => '');
@@ -1703,7 +1710,61 @@ document.addEventListener('DOMContentLoaded', () => {
     e.preventDefault();
     playerStep(e.deltaY > 0 ? 1 : -1);
   }, { passive: false });
+
+  // Street View access modal buttons
+  document.getElementById('svAccessUpgrade').addEventListener('click', async () => {
+    try {
+      const url = await Plans.startCheckout();
+      window.location.href = url;
+    } catch(e) {
+      alert('Could not start checkout: ' + e.message);
+    }
+  });
+  document.getElementById('svAccessSetupKey').addEventListener('click', () => {
+    window.location.href = '/settings#streetview';
+  });
+  document.getElementById('svAccessClose').addEventListener('click', () => {
+    document.getElementById('svAccessModal').classList.add('hidden');
+  });
 });
+
+// ═══════════════════════════════════════════════════════════════════
+// Street View access modal
+// ═══════════════════════════════════════════════════════════════════
+let _svAccessShown = false;
+function showSvAccessModal() {
+  if (_svAccessShown) return;
+  _svAccessShown = true;
+  document.getElementById('svAccessModal').classList.remove('hidden');
+}
 </script>
+
+<!-- Street View Access Modal -->
+<div id="svAccessModal" class="hidden" style="position:fixed;inset:0;background:rgba(7,16,32,.82);z-index:3000;display:flex;align-items:center;justify-content:center">
+  <div style="background:#fff;border-radius:14px;padding:36px 40px;max-width:480px;width:90%;box-shadow:0 8px 40px rgba(0,0,0,.3);text-align:center;position:relative">
+    <button id="svAccessClose" style="position:absolute;top:14px;right:16px;background:none;border:none;font-size:20px;cursor:pointer;color:#888">✕</button>
+    <div style="font-size:42px;margin-bottom:12px">🛰️</div>
+    <h2 style="font-size:20px;color:#1f3b88;margin-bottom:8px">Street View Access Required</h2>
+    <p style="font-size:14px;color:#5a6880;line-height:1.6;margin-bottom:24px">
+      RaceView uses the Google Street View API, which has a per-image cost.<br>
+      Choose how you want to access it:
+    </p>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:20px">
+      <div style="border:2px solid #d0d7e3;border-radius:10px;padding:18px 14px;text-align:center">
+        <div style="font-size:28px;margin-bottom:8px">🔑</div>
+        <div style="font-weight:700;color:#1f3b88;margin-bottom:6px;font-size:14px">Free — Use Your Own Key</div>
+        <div style="font-size:12px;color:#5a6880;line-height:1.5;margin-bottom:14px">Create a free Google API key. You get $200/month free credit — more than enough for personal use.</div>
+        <button id="svAccessSetupKey" style="background:#1f3b88;color:#fff;border:none;border-radius:6px;padding:8px 16px;font-size:13px;font-weight:600;cursor:pointer;width:100%">Set Up My Key</button>
+      </div>
+      <div style="border:2px solid #ffa500;border-radius:10px;padding:18px 14px;text-align:center;background:#fffbf0">
+        <div style="font-size:28px;margin-bottom:8px">⚡</div>
+        <div style="font-weight:700;color:#1f3b88;margin-bottom:6px;font-size:14px">Pro Plan — Just Works</div>
+        <div style="font-size:12px;color:#5a6880;line-height:1.5;margin-bottom:14px">Upgrade to Pro for unlimited analyses + Street View included. No API key setup needed.</div>
+        <button id="svAccessUpgrade" style="background:#ffa500;color:#142960;border:none;border-radius:6px;padding:8px 16px;font-size:13px;font-weight:700;cursor:pointer;width:100%">Upgrade to Pro</button>
+      </div>
+    </div>
+    <p style="font-size:11px;color:#9aa5b8">You can manage your Street View key anytime in <a href="/settings#streetview" style="color:#1f3b88">Settings</a>.</p>
+  </div>
+</div>
 </body>
 </html>

@@ -4,6 +4,7 @@
     { "source": "/estimation",          "destination": "/estimation.html"          },
     { "source": "/estimation-analysis", "destination": "/estimation-analysis.html" },
     { "source": "/raceview",            "destination": "/raceview.html"            },
+    { "source": "/settings",            "destination": "/settings.html"            },
     { "source": "/((?!api/).*)",        "destination": "/index.html"               }
   ],
   "headers": [
